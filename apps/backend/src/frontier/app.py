@@ -9,7 +9,7 @@ from frontier.api.routes import router
 from frontier.container import build_clients
 from frontier.contracts.jobs import FailUnfinishedRequest
 from frontier.core.config import Settings
-from frontier.core.db import open_connection
+from frontier.core.db import open_checkpointer, open_connection
 from frontier.core.logging_config import configure_logging
 
 ERROR_KEYS_ECHOING_INPUT = frozenset({"input", "ctx"})
@@ -21,12 +21,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging(settings.log_format)
     conn = await open_connection(settings.database_path)
     try:
-        clients = await build_clients(settings, conn)
-        await clients.jobs.fail_unfinished(FailUnfinishedRequest(reason="interrupted by restart"))
-        app.state.settings = settings
-        app.state.clients = clients
-        yield
-        await clients.migrations.shutdown()
+        async with open_checkpointer(settings.checkpoint_database_path) as checkpointer:
+            clients = await build_clients(settings, conn, checkpointer)
+            await clients.jobs.fail_unfinished(
+                FailUnfinishedRequest(reason="interrupted by restart")
+            )
+            app.state.settings = settings
+            app.state.clients = clients
+            yield
+            await clients.migrations.shutdown()
     finally:
         await conn.close()
 

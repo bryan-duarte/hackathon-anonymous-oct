@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 import aiosqlite
+from langgraph.checkpoint.base import BaseCheckpointSaver
 
 from frontier.clients.deployer import DeployerClient
 from frontier.clients.guardrails import GuardrailsClient
@@ -53,7 +54,9 @@ class Clients:
     deployer: DeployerClient
 
 
-async def build_clients(settings: Settings, conn: aiosqlite.Connection) -> Clients:
+async def build_clients(
+    settings: Settings, conn: aiosqlite.Connection, checkpointer: BaseCheckpointSaver
+) -> Clients:
     jobs_repository = JobsRepository(conn)
     secrets_repository = SecretsRepository(conn)
     await jobs_repository.init_schema()
@@ -94,8 +97,9 @@ async def build_clients(settings: Settings, conn: aiosqlite.Connection) -> Clien
             command_timeout_s=settings.sandbox_command_timeout_s,
         )
     )
+    sessions = SessionsClient(SessionsService(checkpointer))
     orchestrator = OrchestratorClient(
-        OrchestratorService(llm=llm, prompts=prompts, sandbox=sandbox)
+        OrchestratorService(llm=llm, prompts=prompts, sandbox=sandbox, sessions=sessions)
     )
     migrations = MigrationsClient(
         MigrationsService(
@@ -119,7 +123,7 @@ async def build_clients(settings: Settings, conn: aiosqlite.Connection) -> Clien
         tools=ToolsClient(ToolsService()),
         mcp=McpClient(McpGatewayService()),
         memory=MemoryClient(MemoryService()),
-        sessions=SessionsClient(SessionsService()),
+        sessions=sessions,
         sandbox=sandbox,
         deployer=DeployerClient(DeployerService()),
     )

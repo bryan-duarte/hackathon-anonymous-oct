@@ -30,7 +30,7 @@ MIGRATION_PAYLOAD = {
 }
 
 
-class FakeGuardrails:
+class _FakeGuardrails:
     def __init__(self, verdict: GuardrailVerdict | None) -> None:
         self._verdict = verdict
 
@@ -42,7 +42,7 @@ class FakeGuardrails:
 
 def _client(verdict: GuardrailVerdict | None) -> TestClient:
     migrations = MigrationsService(
-        guardrails=FakeGuardrails(verdict),
+        guardrails=_FakeGuardrails(verdict),
         secrets=None,
         jobs=None,
         orchestrator=None,

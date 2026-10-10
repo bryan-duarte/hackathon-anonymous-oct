@@ -4,6 +4,7 @@ services:
     env_file: ./apps/backend/.env
     environment:
       FRONTIER_DATABASE_PATH: /data/frontier.db
+      FRONTIER_CHECKPOINT_DATABASE_PATH: /data/checkpoints.db
     ports:
       - "8000:8000"
     volumes:

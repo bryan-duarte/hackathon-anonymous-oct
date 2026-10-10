@@ -34,7 +34,8 @@ Output:
   {{"behaviors": [{{"id": "B-001", "method": "GET", "path": "/items/{{id}}",
   "scenario": "unknown id", "expected_status": 404,
   "notes": "body {{\\"detail\\":\\"Not Found\\"}}"}}]}}
-- Then return your structured response.
+- Then finish by calling the {BehaviorCatalogSummary.__name__} tool exactly once. Do not call \
+any other tool after it.
 """
 
 

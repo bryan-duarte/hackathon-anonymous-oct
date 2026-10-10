@@ -10,6 +10,7 @@ dependencies = [
     "fastapi>=0.143.0",
     "langchain-anthropic==1.7.5",
     "langchain-vercel-sandbox==0.0.2",
+    "langgraph-checkpoint-sqlite>=3.1.1",
     "pydantic>=2",
     "pydantic-settings>=2.15.0",
     "structlog>=25",
@@ -32,5 +33,7 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 
 [dependency-groups]
 dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
     "ruff>=0.17.0",
 ]

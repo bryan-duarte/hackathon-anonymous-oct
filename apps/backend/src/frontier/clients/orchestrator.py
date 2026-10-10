@@ -1,7 +1,13 @@
 from typing import TYPE_CHECKING
 
-from frontier.contracts.orchestrator import RunMigrationRequest, RunMigrationResult
+from frontier.contracts.orchestrator import (
+    ChatReply,
+    ChatRequest,
+    RunMigrationRequest,
+    RunMigrationResult,
+)
 from frontier.contracts.prompts import Greeting
+from frontier.contracts.sessions import GetHistoryRequest, SessionHistory
 
 if TYPE_CHECKING:
     from frontier.modules.orchestrator import OrchestratorService
@@ -13,6 +19,12 @@ class OrchestratorClient:
 
     async def greet(self) -> Greeting:
         return await self._service.greet()
+
+    async def chat(self, request: ChatRequest) -> ChatReply:
+        return await self._service.chat(request)
+
+    async def get_history(self, request: GetHistoryRequest) -> SessionHistory | None:
+        return await self._service.get_history(request)
 
     async def run(self, request: RunMigrationRequest) -> RunMigrationResult:
         return await self._service.run(request)

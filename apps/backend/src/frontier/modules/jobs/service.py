@@ -13,6 +13,7 @@ from frontier.contracts.jobs import (
     JobEvent,
     JobPhase,
     JobStatus,
+    MigrationVerdictKind,
     UpdateJobRequest,
 )
 from frontier.modules.jobs.repository import JobsRepository
@@ -101,6 +102,9 @@ def _to_job(row: aiosqlite.Row, events: list[aiosqlite.Row]) -> Job:
         team_token_ref=row["team_token_ref"],
         deployed_url=row["deployed_url"],
         error=row["error"],
+        verdict=MigrationVerdictKind(row["verdict"]) if row["verdict"] else None,
+        summary=row["summary"],
+        artifacts_path=row["artifacts_path"],
         events=[
             JobEvent(
                 at=datetime.fromisoformat(event["at"]),

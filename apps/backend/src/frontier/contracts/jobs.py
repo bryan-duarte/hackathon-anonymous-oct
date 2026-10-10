@@ -13,11 +13,21 @@ class JobStatus(StrEnum):
 
 class JobPhase(StrEnum):
     PENDING = "pending"
+    API_ANALYSIS = "api_analysis"
+    BEHAVIOR_ANALYSIS = "behavior_analysis"
+    CHARACTERIZATION = "characterization"
+    IMPLEMENTATION = "implementation"
+    VALIDATION = "validation"
     DISCOVERY = "discovery"
     BUILD = "build"
     TEST = "test"
     DEPLOY = "deploy"
     DONE = "done"
+
+
+class MigrationVerdictKind(StrEnum):
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
 
 
 class JobEvent(StrictModel):
@@ -36,6 +46,9 @@ class Job(StrictModel):
     team_token_ref: str
     deployed_url: str | None
     error: str | None
+    verdict: MigrationVerdictKind | None
+    summary: str | None
+    artifacts_path: str | None
     events: list[JobEvent]
     created_at: datetime
     updated_at: datetime
@@ -58,6 +71,9 @@ class UpdateJobRequest(StrictModel):
     phase: JobPhase | None = None
     deployed_url: str | None = None
     error: str | None = None
+    verdict: MigrationVerdictKind | None = None
+    summary: str | None = None
+    artifacts_path: str | None = None
 
 
 class AppendEventRequest(StrictModel):

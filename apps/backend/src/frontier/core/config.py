@@ -38,3 +38,12 @@ class Settings(BaseSettings):
     sandbox_runtime: str = "python3.13"
     sandbox_timeout_s: int = Field(default=600, gt=0)
     sandbox_command_timeout_s: int = Field(default=300, gt=0)
+
+    orchestrator_model: str | None = None
+    analyst_model: str | None = None
+    scientist_model: str | None = None
+    coder_model: str | None = None
+    migration_sandbox_timeout_s: int = Field(default=2700, gt=0)
+    migration_max_phase_attempts: int = Field(default=3, ge=1)
+    artifacts_dir: Path = Path("data/artifacts")
+    probe_timeout_s: float = Field(default=15, gt=0)

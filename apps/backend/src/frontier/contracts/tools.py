@@ -1,27 +1,27 @@
-from pydantic import JsonValue
+from dataclasses import dataclass
+from enum import StrEnum
 
-from frontier.contracts._base import StrictModel
-
-
-class ToolSpec(StrictModel):
-    name: str
-    description: str
+from langchain.agents.middleware import AgentMiddleware
+from langchain_core.tools import BaseTool
 
 
-class ListToolsRequest(StrictModel):
-    pass
-
-
-class ToolList(StrictModel):
-    tools: list[ToolSpec]
-
-
-class InvokeToolRequest(StrictModel):
+@dataclass(frozen=True)
+class MigrationRunContext:
     job_id: str
-    tool_name: str
-    arguments: dict[str, JsonValue]
+    base_url: str
+    service_key_ref: str
+    sandbox_id: str
 
 
-class ToolResult(StrictModel):
-    output: str
-    is_error: bool
+@dataclass(frozen=True)
+class MigrationToolset:
+    orchestrator: list[BaseTool]
+    analyst: list[BaseTool]
+    scientist: list[BaseTool]
+    coder: list[BaseTool]
+    output_guard: AgentMiddleware
+
+
+class SuiteTarget(StrEnum):
+    LEGACY = "legacy"
+    CANDIDATE = "candidate"

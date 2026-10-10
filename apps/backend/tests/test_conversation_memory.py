@@ -19,6 +19,8 @@ from frontier.modules.orchestrator import OrchestratorService
 from frontier.modules.sessions import SessionsService
 
 TEST_SYSTEM_PROMPT = "You are a test agent."
+UNUSED_MIGRATION_SANDBOX_TIMEOUT_S = 2700
+UNUSED_MAX_PHASE_ATTEMPTS = 3
 
 
 class _ToolFreeFakeChatModel(GenericFakeChatModel):
@@ -45,6 +47,10 @@ class _InMemorySandbox:
         yield StateBackend()
 
 
+class _UnusedMigrationDependency:
+    """Chat never runs a migration, so tools and subagents are never touched."""
+
+
 class _AllowAllGuardrails:
     async def check(self, request: GuardrailCheckRequest) -> GuardrailVerdict:
         return GuardrailVerdict(allowed=True, violations=[])
@@ -59,6 +65,11 @@ def _orchestrator(
         sandbox=_InMemorySandbox(),
         sessions=SessionsClient(SessionsService(checkpointer)),
         guardrails=_AllowAllGuardrails(),
+        tools=_UnusedMigrationDependency(),
+        subagents=_UnusedMigrationDependency(),
+        artifacts_dir=Path("unused-artifacts"),
+        sandbox_timeout_s=UNUSED_MIGRATION_SANDBOX_TIMEOUT_S,
+        max_phase_attempts=UNUSED_MAX_PHASE_ATTEMPTS,
     )
 
 

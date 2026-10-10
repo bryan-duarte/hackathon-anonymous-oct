@@ -6,6 +6,7 @@ import structlog
 LogFormat = Literal["console", "json"]
 
 UVICORN_LOGGERS = ("uvicorn", "uvicorn.error", "uvicorn.access")
+URL_LOGGING_HTTP_CLIENTS = ("httpx", "httpx2", "httpcore")
 
 SHARED_PROCESSORS: list[structlog.typing.Processor] = [
     structlog.contextvars.merge_contextvars,
@@ -36,6 +37,7 @@ def configure_logging(log_format: LogFormat) -> None:
     root_logger.handlers = [handler]
     root_logger.setLevel(logging.INFO)
     _route_uvicorn_through_root()
+    _silence_request_url_logs()
 
 
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:
@@ -53,3 +55,8 @@ def _route_uvicorn_through_root() -> None:
         uvicorn_logger = logging.getLogger(logger_name)
         uvicorn_logger.handlers = []
         uvicorn_logger.propagate = True
+
+
+def _silence_request_url_logs() -> None:
+    for logger_name in URL_LOGGING_HTTP_CLIENTS:
+        logging.getLogger(logger_name).setLevel(logging.WARNING)

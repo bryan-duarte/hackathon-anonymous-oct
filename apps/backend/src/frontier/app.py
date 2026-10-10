@@ -10,6 +10,7 @@ from frontier.container import build_clients
 from frontier.contracts.jobs import FailUnfinishedRequest
 from frontier.core.config import Settings
 from frontier.core.db import open_connection
+from frontier.core.logging_config import configure_logging
 
 ERROR_KEYS_ECHOING_INPUT = frozenset({"input", "ctx"})
 
@@ -17,6 +18,7 @@ ERROR_KEYS_ECHOING_INPUT = frozenset({"input", "ctx"})
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = Settings()
+    configure_logging(settings.log_format)
     conn = await open_connection(settings.database_path)
     try:
         clients = await build_clients(settings, conn)

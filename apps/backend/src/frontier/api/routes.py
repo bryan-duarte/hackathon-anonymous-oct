@@ -12,9 +12,12 @@ from frontier.contracts.migrations import (
     MigrationRequest,
     MigrationStatus,
 )
+from frontier.contracts.prompts import Greeting
+from frontier.modules.orchestrator import MissingStructuredResponseError
 
 router = APIRouter()
 migrations_router = APIRouter(prefix="/migrations", dependencies=[Depends(require_platform_key)])
+agent_router = APIRouter(prefix="/agent", dependencies=[Depends(require_platform_key)])
 
 ClientsDep = Annotated[Clients, Depends(get_clients)]
 
@@ -49,4 +52,13 @@ async def get_migration(job_id: str, clients: ClientsDep) -> MigrationStatus:
     return migration
 
 
+@agent_router.post("/greeting")
+async def greet_agent(clients: ClientsDep) -> Greeting:
+    try:
+        return await clients.orchestrator.greet()
+    except MissingStructuredResponseError as error:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error)) from error
+
+
 router.include_router(migrations_router)
+router.include_router(agent_router)

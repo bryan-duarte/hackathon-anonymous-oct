@@ -62,7 +62,30 @@ async def build_clients(settings: Settings, conn: aiosqlite.Connection) -> Clien
     jobs = JobsClient(JobsService(jobs_repository))
     secrets = SecretsClient(SecretsService(secrets_repository, settings.secrets_master_key))
     guardrails = GuardrailsClient(GuardrailsService())
-    orchestrator = OrchestratorClient(OrchestratorService())
+    llm = LlmClient(
+        LlmGatewayService(
+            api_key=settings.openrouter_api_key,
+            base_url=settings.llm_base_url,
+            model=settings.llm_model,
+            max_tokens=settings.llm_max_tokens,
+            timeout_s=settings.llm_timeout_s,
+            max_retries=settings.llm_max_retries,
+        )
+    )
+    prompts = PromptsClient(PromptsService())
+    sandbox = SandboxClient(
+        SandboxService(
+            token=settings.vercel_token,
+            team_id=settings.vercel_team_id,
+            project_id=settings.vercel_project_id,
+            runtime=settings.sandbox_runtime,
+            timeout_s=settings.sandbox_timeout_s,
+            command_timeout_s=settings.sandbox_command_timeout_s,
+        )
+    )
+    orchestrator = OrchestratorClient(
+        OrchestratorService(llm=llm, prompts=prompts, sandbox=sandbox)
+    )
     migrations = MigrationsClient(
         MigrationsService(
             guardrails=guardrails,
@@ -80,12 +103,12 @@ async def build_clients(settings: Settings, conn: aiosqlite.Connection) -> Clien
         guardrails=guardrails,
         orchestrator=orchestrator,
         subagents=SubagentsClient(SubagentsService()),
-        llm=LlmClient(LlmGatewayService()),
-        prompts=PromptsClient(PromptsService()),
+        llm=llm,
+        prompts=prompts,
         tools=ToolsClient(ToolsService()),
         mcp=McpClient(McpGatewayService()),
         memory=MemoryClient(MemoryService()),
         sessions=SessionsClient(SessionsService()),
-        sandbox=SandboxClient(SandboxService()),
+        sandbox=sandbox,
         deployer=DeployerClient(DeployerService()),
     )

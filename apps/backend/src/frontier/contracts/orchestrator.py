@@ -1,9 +1,7 @@
 from pydantic import Field
 
-from frontier.contracts._base import ApiModel, StrictModel
+from frontier.contracts._base import MAX_AGENT_INPUT_LENGTH, ApiModel, StrictModel
 from frontier.contracts.sessions import SessionId
-
-MAX_CHAT_MESSAGE_LENGTH = 200_000
 
 
 class RunMigrationRequest(StrictModel):
@@ -20,7 +18,7 @@ class RunMigrationResult(StrictModel):
 
 class ChatRequest(ApiModel):
     session_id: SessionId | None = None
-    message: str = Field(min_length=1, max_length=MAX_CHAT_MESSAGE_LENGTH)
+    message: str = Field(min_length=1, max_length=MAX_AGENT_INPUT_LENGTH)
 
 
 class ChatReply(ApiModel):

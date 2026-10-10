@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 
+from frontier.contracts.guardrails import GuardrailRejection
 from frontier.contracts.orchestrator import (
     ChatReply,
     ChatRequest,
@@ -20,7 +21,7 @@ class OrchestratorClient:
     async def greet(self) -> Greeting:
         return await self._service.greet()
 
-    async def chat(self, request: ChatRequest) -> ChatReply:
+    async def chat(self, request: ChatRequest) -> ChatReply | GuardrailRejection:
         return await self._service.chat(request)
 
     async def get_history(self, request: GetHistoryRequest) -> SessionHistory | None:

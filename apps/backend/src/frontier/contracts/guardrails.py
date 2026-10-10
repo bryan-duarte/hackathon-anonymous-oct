@@ -1,14 +1,14 @@
 from enum import StrEnum
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr, computed_field
 
-from frontier.contracts._base import StrictModel
+from frontier.contracts._base import ApiModel, StrictModel
 
 
 class GuardrailCheckRequest(StrictModel):
-    base_url: str
     context: str
-    secrets: dict[str, SecretStr]
+    base_url: str | None = None
+    secrets: dict[str, SecretStr] = Field(default_factory=dict)
 
 
 class GuardrailViolationCode(StrEnum):
@@ -27,3 +27,12 @@ class GuardrailViolation(StrictModel):
 class GuardrailVerdict(StrictModel):
     allowed: bool
     violations: list[GuardrailViolation]
+
+
+class GuardrailRejection(ApiModel):
+    violations: list[GuardrailViolation]
+
+    @computed_field
+    @property
+    def reasons(self) -> list[str]:
+        return [violation.message for violation in self.violations]

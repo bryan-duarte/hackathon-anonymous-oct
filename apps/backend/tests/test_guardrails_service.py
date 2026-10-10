@@ -167,3 +167,14 @@ def _answer_garbage(request: httpx.Request) -> httpx.Response:
 async def test_fails_closed_when_the_decision_model_is_unusable(handler: DecisionsHandler) -> None:
     with pytest.raises(GuardrailUnavailableError):
         await _guardrails(handler).check(_request(LEGIT_CONTEXT))
+
+
+@pytest.mark.asyncio
+async def test_screens_chat_messages_without_base_url_or_submitted_secrets() -> None:
+    api = _FakeDecisionsApi()
+
+    verdict = await _guardrails(api.handle).check(GuardrailCheckRequest(context=LEGIT_CONTEXT))
+
+    assert verdict.allowed
+    [body] = api.sent_bodies
+    assert "base_url" not in body["state"]

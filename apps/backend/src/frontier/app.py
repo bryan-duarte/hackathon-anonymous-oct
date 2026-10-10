@@ -11,8 +11,10 @@ from frontier.contracts.jobs import FailUnfinishedRequest
 from frontier.core.config import Settings
 from frontier.core.db import open_checkpointer, open_connection
 from frontier.core.logging_config import configure_logging
+from frontier.modules.guardrails import GuardrailUnavailableError
 
 ERROR_KEYS_ECHOING_INPUT = frozenset({"input", "ctx"})
+SAFETY_CHECK_UNAVAILABLE = "Safety check is temporarily unavailable. Please try again in a moment."
 
 
 @asynccontextmanager
@@ -44,9 +46,19 @@ async def reject_invalid_request(request: Request, error: RequestValidationError
     )
 
 
+async def reject_unscreened_request(
+    request: Request, error: GuardrailUnavailableError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": SAFETY_CHECK_UNAVAILABLE},
+    )
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="Frontier · La Caja Negra", lifespan=lifespan)
     app.add_exception_handler(RequestValidationError, reject_invalid_request)
+    app.add_exception_handler(GuardrailUnavailableError, reject_unscreened_request)
     app.include_router(router)
     return app
 

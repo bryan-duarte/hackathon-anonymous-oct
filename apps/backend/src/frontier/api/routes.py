@@ -5,10 +5,10 @@ from fastapi.responses import JSONResponse
 
 from frontier.api.deps import get_clients, require_platform_key
 from frontier.container import Clients
+from frontier.contracts.guardrails import GuardrailRejection
 from frontier.contracts.migrations import (
     GetMigrationStatusRequest,
     MigrationAccepted,
-    MigrationRejected,
     MigrationRequest,
     MigrationStatus,
 )
@@ -20,10 +20,12 @@ from frontier.contracts.sessions import (
     SessionHistory,
     SessionId,
 )
-from frontier.modules.guardrails import GuardrailUnavailableError
 from frontier.modules.orchestrator import MissingStructuredResponseError
 
-SAFETY_CHECK_UNAVAILABLE = "Safety check is temporarily unavailable. Please try again in a moment."
+GUARDRAIL_RESPONSES: dict[int | str, dict[str, object]] = {
+    status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": GuardrailRejection},
+    status.HTTP_503_SERVICE_UNAVAILABLE: {"description": "Safety check unavailable"},
+}
 
 router = APIRouter()
 migrations_router = APIRouter(prefix="/migrations", dependencies=[Depends(require_platform_key)])
@@ -41,24 +43,14 @@ async def health() -> dict[str, str]:
     "",
     status_code=status.HTTP_202_ACCEPTED,
     response_model=MigrationAccepted,
-    responses={
-        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": MigrationRejected},
-        status.HTTP_503_SERVICE_UNAVAILABLE: {"description": "Safety check unavailable"},
-    },
+    responses=GUARDRAIL_RESPONSES,
 )
 async def submit_migration(
     request: MigrationRequest, clients: ClientsDep
 ) -> MigrationAccepted | JSONResponse:
-    try:
-        submission = await clients.migrations.submit(request)
-    except GuardrailUnavailableError as error:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=SAFETY_CHECK_UNAVAILABLE
-        ) from error
-    if isinstance(submission, MigrationRejected):
-        return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content=submission.model_dump()
-        )
+    submission = await clients.migrations.submit(request)
+    if isinstance(submission, GuardrailRejection):
+        return _guardrail_rejection_response(submission)
     return submission
 
 
@@ -78,9 +70,12 @@ async def greet_agent(clients: ClientsDep) -> Greeting:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error)) from error
 
 
-@agent_router.post("/chat")
-async def chat_with_agent(request: ChatRequest, clients: ClientsDep) -> ChatReply:
-    return await clients.orchestrator.chat(request)
+@agent_router.post("/chat", response_model=ChatReply, responses=GUARDRAIL_RESPONSES)
+async def chat_with_agent(request: ChatRequest, clients: ClientsDep) -> ChatReply | JSONResponse:
+    chat_outcome = await clients.orchestrator.chat(request)
+    if isinstance(chat_outcome, GuardrailRejection):
+        return _guardrail_rejection_response(chat_outcome)
+    return chat_outcome
 
 
 @agent_router.get("/sessions/{session_id}/history")
@@ -95,6 +90,12 @@ async def get_session_history(
     if history is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="session not found")
     return history
+
+
+def _guardrail_rejection_response(rejection: GuardrailRejection) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content=rejection.model_dump(mode="json")
+    )
 
 
 router.include_router(migrations_router)

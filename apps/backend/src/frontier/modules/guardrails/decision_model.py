@@ -50,7 +50,7 @@ class DecisionModel:
                 response = await http.post(
                     self._url,
                     headers={"Authorization": f"Bearer {self._api_key.get_secret_value()}"},
-                    json=decisions_request.model_dump(mode="json"),
+                    json=decisions_request.model_dump(mode="json", exclude_none=True),
                 )
             response.raise_for_status()
             return DecisionsResponse.model_validate_json(response.content)

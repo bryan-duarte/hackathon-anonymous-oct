@@ -38,13 +38,15 @@ class GuardrailsService:
         self._chunk_chars = chunk_chars
 
     async def check(self, request: GuardrailCheckRequest) -> GuardrailVerdict:
-        base_url_secrets = _find_exposed_secrets(request.base_url, request.secrets)
+        base_url_secrets = _find_exposed_secrets(request.base_url or "", request.secrets)
         context_secrets = _find_exposed_secrets(request.context, request.secrets)
         secret_violations = _secret_violations(base_url_secrets + context_secrets)
 
+        redacted_base_url = (
+            _redact(request.base_url, base_url_secrets) if request.base_url else None
+        )
         risk_scores = await self._score_risks(
-            base_url=_redact(request.base_url, base_url_secrets),
-            context=_redact(request.context, context_secrets),
+            base_url=redacted_base_url, context=_redact(request.context, context_secrets)
         )
         risk_violations = [
             policy.violation
@@ -63,7 +65,7 @@ class GuardrailsService:
         )
         return GuardrailVerdict(allowed=not violations, violations=violations)
 
-    async def _score_risks(self, base_url: str, context: str) -> RiskScores:
+    async def _score_risks(self, base_url: str | None, context: str) -> RiskScores:
         questions = {policy.code.value: policy.question for policy in RISK_POLICIES}
         chunk_scores = await asyncio.gather(
             *(

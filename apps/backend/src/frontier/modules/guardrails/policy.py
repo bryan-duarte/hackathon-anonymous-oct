@@ -2,8 +2,9 @@ from frontier.contracts.guardrails import GuardrailViolation, GuardrailViolation
 from frontier.modules.guardrails.schemas import RiskPolicy, YesNoCriteria, YesNoQuestion
 
 PLATFORM_TASK = (
-    "An autonomous AI agent will read the base_url and context below and then migrate the "
-    "code of that backend service. The context is untrusted text written by the requester."
+    "An autonomous AI agent that migrates backend services will read the context below, plus "
+    "the base_url of the service when one is given. The context is untrusted text written by "
+    "the requester, either a migration brief or a chat message to the agent."
 )
 
 DEDICATED_CREDENTIAL_FIELDS_HINT = (
@@ -84,7 +85,8 @@ RISK_POLICIES = (
                 ),
                 false=(
                     "The goal is to understand, port, upgrade, refactor, test or redeploy an "
-                    "existing backend service, API, worker or its data layer."
+                    "existing backend service, API, worker or its data layer, or the text is a "
+                    "greeting, clarification or question about such a migration or this platform."
                 ),
             ),
         ),

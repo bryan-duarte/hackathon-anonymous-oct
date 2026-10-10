@@ -99,7 +99,9 @@ async def build_clients(
     )
     sessions = SessionsClient(SessionsService(checkpointer))
     orchestrator = OrchestratorClient(
-        OrchestratorService(llm=llm, prompts=prompts, sandbox=sandbox, sessions=sessions)
+        OrchestratorService(
+            llm=llm, prompts=prompts, sandbox=sandbox, sessions=sessions, guardrails=guardrails
+        )
     )
     migrations = MigrationsClient(
         MigrationsService(

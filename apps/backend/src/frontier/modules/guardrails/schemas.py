@@ -20,7 +20,7 @@ class SecretMatch(StrictModel):
 
 class ScreeningState(StrictModel):
     task: str
-    base_url: str
+    base_url: str | None
     context: str
 
 

@@ -5,6 +5,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from frontier.core.logging_config import LogFormat
 
+OPENROUTER_API_URL = "https://openrouter.ai/api"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="FRONTIER_", env_file=".env", extra="ignore")
@@ -21,13 +23,13 @@ class Settings(BaseSettings):
     vercel_team_id: str = Field(validation_alias="VERCEL_TEAM_ID", min_length=1)
     vercel_project_id: str = Field(validation_alias="VERCEL_PROJECT_ID", min_length=1)
 
-    llm_base_url: str = "https://openrouter.ai/api"
+    llm_base_url: str = OPENROUTER_API_URL
     llm_model: str = "anthropic/claude-haiku-5.5"
     llm_max_tokens: int = Field(default=8192, ge=1)
     llm_timeout_s: float = Field(default=120, gt=0)
     llm_max_retries: int = Field(default=2, ge=0)
 
-    guardrail_url: str = "https://openrouter.ai/api/alpha/decisions"
+    guardrail_url: str = f"{OPENROUTER_API_URL}/alpha/decisions"
     guardrail_model: str = "typesafe/jev-1.13"
     guardrail_timeout_s: float = Field(default=15, gt=0)
     guardrail_block_threshold: float = Field(default=0.5, ge=0, le=1)

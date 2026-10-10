@@ -34,8 +34,8 @@ Output:
   {{"behaviors": [{{"id": "B-001", "method": "GET", "path": "/items/{{id}}",
   "scenario": "unknown id", "expected_status": 404,
   "notes": "body {{\\"detail\\":\\"Not Found\\"}}"}}]}}
-- Then finish by calling the {BehaviorCatalogSummary.__name__} tool exactly once. Do not call \
-any other tool after it.
+- Then finish with your final summary ({BehaviorCatalogSummary.__name__}), exactly once, as your \
+last step.
 """
 
 

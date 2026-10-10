@@ -8,7 +8,10 @@ from frontier.clients.secrets import SecretsClient
 from frontier.contracts.tools import MigrationToolset
 from frontier.modules.tools.characterization import CharacterizationRunner
 from frontier.modules.tools.legacy_api import LegacyApiProbe
-from frontier.modules.tools.middleware import ToolOutputGuardMiddleware
+from frontier.modules.tools.middleware import (
+    RepeatedCallGuardMiddleware,
+    ToolOutputGuardMiddleware,
+)
 from frontier.modules.tools.progress import ProgressReporter
 
 
@@ -27,6 +30,7 @@ class ToolsService:
         self._characterization = CharacterizationRunner(sandbox=sandbox, secrets=secrets)
         self._progress = ProgressReporter(jobs=jobs, secrets=secrets)
         self._output_guard = ToolOutputGuardMiddleware(secrets=secrets)
+        self._loop_guard = RepeatedCallGuardMiddleware()
 
     def migration_toolset(self) -> MigrationToolset:
         discover_endpoints = _as_tool(self._legacy_api.discover_endpoints, "discover_endpoints")
@@ -43,7 +47,7 @@ class ToolsService:
             analyst=[discover_endpoints, probe_http],
             scientist=[discover_endpoints, probe_http],
             coder=[probe_http, run_characterization_suite, check_behavior_coverage],
-            output_guard=self._output_guard,
+            guards=[self._output_guard, self._loop_guard],
         )
 
 

@@ -38,8 +38,8 @@ time and mark each completed as soon as it is done.
 Output:
 - Write {API_SURFACE_REPORT_PATH} with sections: API, Contract source, Conventions, Auth, \
 Endpoints, Open questions.
-- Then finish by calling the {ApiSurfaceSummary.__name__} tool exactly once. Do not call any \
-other tool after it.
+- Then finish with your final summary ({ApiSurfaceSummary.__name__}), exactly once, as your last \
+step.
 """
 
 

@@ -19,7 +19,7 @@ class MigrationToolset:
     analyst: list[BaseTool]
     scientist: list[BaseTool]
     coder: list[BaseTool]
-    output_guard: AgentMiddleware
+    guards: list[AgentMiddleware]
 
 
 class SuiteTarget(StrEnum):

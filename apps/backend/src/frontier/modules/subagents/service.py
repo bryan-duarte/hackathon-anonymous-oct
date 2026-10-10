@@ -4,7 +4,7 @@ from importlib.resources.abc import Traversable
 
 from deepagents import SubAgent
 from langchain.agents.middleware import AgentMiddleware, TodoListMiddleware
-from langchain.agents.structured_output import ToolStrategy
+from langchain.agents.structured_output import ProviderStrategy
 from langchain_core.tools import BaseTool
 
 from frontier.clients.llm import LlmClient
@@ -49,7 +49,7 @@ class SubagentsService:
             PromptId.CODER,
             AgentRole.CODER,
             toolset.coder,
-            toolset.output_guard,
+            toolset.guards,
         )
         coder["skills"] = [CODER_SKILLS_SOURCE]
         return [
@@ -59,7 +59,7 @@ class SubagentsService:
                 PromptId.API_ANALYST,
                 AgentRole.ANALYST,
                 toolset.analyst,
-                toolset.output_guard,
+                toolset.guards,
             ),
             self._spec(
                 API_SCIENTIST_NAME,
@@ -67,7 +67,7 @@ class SubagentsService:
                 PromptId.API_SCIENTIST,
                 AgentRole.SCIENTIST,
                 toolset.scientist,
-                toolset.output_guard,
+                toolset.guards,
             ),
             coder,
         ]
@@ -86,7 +86,7 @@ class SubagentsService:
         prompt_id: PromptId,
         role: AgentRole,
         tools: Sequence[BaseTool],
-        output_guard: AgentMiddleware,
+        guards: list[AgentMiddleware],
     ) -> SubAgent:
         return {
             "name": name,
@@ -94,8 +94,8 @@ class SubagentsService:
             "system_prompt": self._prompts.get_text(prompt_id),
             "model": self._llm.chat_model_for(role),
             "tools": list(tools),
-            "middleware": [TodoListMiddleware(), output_guard],
-            "response_format": ToolStrategy(self._prompts.get_schema(prompt_id)),
+            "middleware": [TodoListMiddleware(), *guards],
+            "response_format": ProviderStrategy(self._prompts.get_schema(prompt_id)),
         }
 
 

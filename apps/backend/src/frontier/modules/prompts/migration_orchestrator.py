@@ -72,8 +72,7 @@ Secrets:
 Verdict:
 - accepted only if phases 1-4 passed their gates and your final hard checks passed in this run.
 - Otherwise rejected, listing rejected_phases and the concrete gaps.
-- Always finish by calling the {MigrationVerdict.__name__} tool exactly once. Do not call any \
-other tool after it.
+- Always finish with your verdict ({MigrationVerdict.__name__}), exactly once, as your last step.
 """
 
 

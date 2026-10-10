@@ -45,8 +45,8 @@ Planning with write_todos:
 "Self-review checkpoint".
 - Keep exactly one todo in_progress at a time.
 
-Output: write or update {CODING_REPORT_PATH}, then finish by calling the \
-{CodingSummary.__name__} tool exactly once. Do not call any other tool after it.
+Output: write or update {CODING_REPORT_PATH}, then finish with your final summary \
+({CodingSummary.__name__}), exactly once, as your last step.
 """
 
 

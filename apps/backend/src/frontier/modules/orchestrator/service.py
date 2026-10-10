@@ -5,7 +5,7 @@ from deepagents import create_deep_agent
 from deepagents.backends.protocol import BackendProtocol
 from deepagents.middleware import FilesystemMiddleware
 from langchain.agents.middleware import TodoListMiddleware
-from langchain.agents.structured_output import ToolStrategy
+from langchain.agents.structured_output import ProviderStrategy, ToolStrategy
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
@@ -19,6 +19,7 @@ from frontier.clients.sessions import SessionsClient
 from frontier.clients.subagents import SubagentsClient
 from frontier.clients.tools import ToolsClient
 from frontier.contracts.guardrails import GuardrailCheckRequest, GuardrailRejection
+from frontier.contracts.jobs import MigrationVerdictKind
 from frontier.contracts.llm import AgentRole
 from frontier.contracts.orchestrator import (
     ChatReply,
@@ -53,6 +54,10 @@ ARTIFACT_EXPORT_MARGIN_S = 180
 LEADER_FILE_TOOLS = ["ls", "read_file", "glob", "grep", "execute"]
 ORCHESTRATOR_AGENT_NAME = "migration-orchestrator"
 MIGRATION_THREAD_PREFIX = "migration:"
+UNSUPPORTED_ACCEPTANCE_NOTE = (
+    "Downgraded to rejected: the lead accepted without both suites passing, full behavior "
+    "coverage and no rejected phases. Lead's summary: "
+)
 KICKOFF_TEMPLATE = """\
 Refactor the legacy API at {base_url} into a new version with identical behavior.
 
@@ -160,6 +165,23 @@ class OrchestratorService:
             raise MissingStructuredResponseError(MigrationVerdict)
         if exported_workspace is None:
             raise ArtifactExportFailedError(request.job_id)
+        evidence_supports_acceptance = (
+            migration_verdict.legacy_suite_passed
+            and migration_verdict.candidate_suite_passed
+            and not migration_verdict.uncovered_behavior_ids
+            and not migration_verdict.rejected_phases
+        )
+        accepted_without_evidence = (
+            migration_verdict.verdict == MigrationVerdictKind.ACCEPTED
+            and not evidence_supports_acceptance
+        )
+        if accepted_without_evidence:
+            logger.warning("migration_verdict_downgraded", job_id=request.job_id)
+            return RunMigrationResult(
+                verdict=MigrationVerdictKind.REJECTED,
+                summary=f"{UNSUPPORTED_ACCEPTANCE_NOTE}{migration_verdict.summary}",
+                artifacts_path=exported_workspace.path,
+            )
         return RunMigrationResult(
             verdict=migration_verdict.verdict,
             summary=migration_verdict.summary,
@@ -222,11 +244,11 @@ class OrchestratorService:
             middleware=[
                 TodoListMiddleware(),
                 FilesystemMiddleware(backend=job_sandbox.backend, tools=LEADER_FILE_TOOLS),
-                toolset.output_guard,
+                *toolset.guards,
             ],
             subagents=self._subagents.migration_subagents(toolset),
             backend=job_sandbox.backend,
-            response_format=ToolStrategy(MigrationVerdict),
+            response_format=ProviderStrategy(MigrationVerdict),
             context_schema=MigrationRunContext,
             checkpointer=self._sessions.checkpointer(),
             name=ORCHESTRATOR_AGENT_NAME,

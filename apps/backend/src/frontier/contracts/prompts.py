@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from frontier.contracts._base import StrictModel
 from frontier.contracts.jobs import MigrationVerdictKind
@@ -25,8 +25,8 @@ class MigrationAgentReport(StrictModel):
 
 
 class ApiSurfaceSummary(StrictModel):
-    """Final step: call this exactly once, after writing the API surface report, to hand your
-    summary back to the lead. Your task is not finished until you call it."""
+    """Your final answer to the lead: produce it exactly once, as your last step, after
+    writing the API surface report."""
 
     report_path: str = Field(description="Absolute sandbox path of the API surface report.")
     contract_source: str = Field(
@@ -44,8 +44,8 @@ class ApiSurfaceSummary(StrictModel):
 
 
 class BehaviorCatalogSummary(StrictModel):
-    """Final step: call this exactly once, after writing the behavior report and behaviors.json, to
-    hand your summary back to the lead. Your task is not finished until you call it."""
+    """Your final answer to the lead: produce it exactly once, as your last step, after
+    writing the behavior report and behaviors.json."""
 
     report_path: str = Field(description="Absolute sandbox path of the behavior report.")
     catalogue_path: str = Field(description="Absolute sandbox path of behaviors.json.")
@@ -58,8 +58,8 @@ class BehaviorCatalogSummary(StrictModel):
 
 
 class CodingSummary(StrictModel):
-    """Final step: call this exactly once, after writing the coding report, to hand your summary
-    back to the lead. Your task is not finished until you call it."""
+    """Your final answer to the lead: produce it exactly once, as your last step, after
+    writing the coding report."""
 
     phase: Literal["characterization", "implementation"] = Field(
         description="Which coding task was performed."
@@ -74,8 +74,8 @@ class CodingSummary(StrictModel):
 
 
 class MigrationVerdict(StrictModel):
-    """Final step: call this exactly once, after your final hard checks, to deliver the migration
-    verdict. The migration is not finished until you call it."""
+    """The migration verdict: produce it exactly once, as your last step, after your final
+    hard checks."""
 
     verdict: MigrationVerdictKind = Field(
         strict=False, description="accepted only if every gate check passed."
@@ -90,19 +90,3 @@ class MigrationVerdict(StrictModel):
         description="Last run_characterization_suite(candidate) passed."
     )
     rejected_phases: list[str] = Field(description="Phases that hit the attempt cap, if any.")
-
-    @model_validator(mode="after")
-    def _accepted_only_with_passing_evidence(self) -> "MigrationVerdict":
-        accepted = self.verdict == MigrationVerdictKind.ACCEPTED
-        evidence_supports_acceptance = (
-            self.legacy_suite_passed
-            and self.candidate_suite_passed
-            and not self.uncovered_behavior_ids
-            and not self.rejected_phases
-        )
-        if accepted and not evidence_supports_acceptance:
-            raise ValueError(
-                "verdict 'accepted' requires both suites passing, no uncovered behavior IDs "
-                "and no rejected phases; return 'rejected' or fix the gaps first"
-            )
-        return self

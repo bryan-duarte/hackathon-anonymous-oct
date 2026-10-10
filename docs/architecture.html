@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontier · La Caja Negra — Arquitectura de la solución</title>
+<link rel="icon" href="../assets/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@400;700;900&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --lab10-lavender:#a9a0ec;
+    --lab10-yellow:#f6f072;
+    --fr-bg:#0a0a0a;
+    --fr-surface:#141414;
+    --fr-hover:#1c1c1c;
+    --fr-dot:#1f1f1f;
+    --fr-pixel:#2a2a2a;
+    --fr-pixel-2:#3a3a3a;
+    --fr-line:#262626;
+    --fr-line-strong:#666;
+    --fr-fg:#fafafa;
+    --fr-fg-muted:#a3a3a3;
+    --fr-lavender-deep:#1f1b3a;
+    --fr-yellow-deep:#26240a;
+    --fr-success:#3ecf8e;
+    --fr-warning:#ff9f43;
+    --fr-danger:#ff5a5f;
+    --fr-glow:0 0 0 1px var(--lab10-lavender), 0 0 32px rgba(169,160,236,.35);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--fr-bg);
+    background-image:radial-gradient(var(--fr-dot) 1px, transparent 1px);
+    background-size:24px 24px;
+    color:var(--fr-fg);
+    font-family:'Geist',system-ui,sans-serif;
+    line-height:1.6;
+    min-height:100vh;
+  }
+  .wrap{max-width:1060px;margin:0 auto;padding:48px 24px 80px}
+  ::selection{background:var(--lab10-yellow);color:#0a0a0a}
+
+  /* ---------- header ---------- */
+  .terminal{
+    font-family:'Geist Mono',monospace;
+    font-size:13px;color:var(--fr-fg-muted);
+    border:1px solid var(--fr-line);
+    background:var(--fr-surface);
+    padding:14px 18px;
+    display:flex;align-items:center;gap:10px;
+  }
+  .terminal .dot{width:10px;height:10px;border-radius:50%;background:var(--fr-pixel-2);flex-shrink:0}
+  .terminal .cmd{color:var(--fr-fg)}
+  .terminal .cmd b{color:var(--lab10-yellow);font-weight:500}
+  .cursor{display:inline-block;width:8px;height:15px;background:var(--lab10-yellow);vertical-align:-2px;animation:blink 1.1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  header.hero{padding:56px 0 40px;display:flex;justify-content:space-between;align-items:flex-end;gap:32px;flex-wrap:wrap}
+  .kicker{font-family:'Geist Mono',monospace;font-size:12px;letter-spacing:.14em;color:var(--fr-fg-muted);text-transform:uppercase}
+  .kicker::before{content:"[ ";color:var(--fr-line-strong)}
+  .kicker::after{content:" ]";color:var(--fr-line-strong)}
+  h1{font-family:'Doto','Geist Mono',monospace;font-weight:900;font-size:clamp(40px,7vw,72px);line-height:1.02;margin:14px 0 10px;letter-spacing:-.01em}
+  h1 .hl{color:var(--lab10-yellow)}
+  .sub{color:var(--fr-fg-muted);max-width:560px;font-size:16px}
+  .sub strong{color:var(--fr-fg);font-weight:500}
+  .logo{width:min(300px,60vw);opacity:.95;flex-shrink:0}
+
+  /* ---------- flow strip ---------- */
+  .flow{
+    font-family:'Geist Mono',monospace;font-size:12.5px;
+    border:1px solid var(--fr-line);background:var(--fr-surface);
+    padding:16px 18px;overflow-x:auto;white-space:nowrap;
+    display:flex;align-items:center;gap:2px;
+  }
+  .flow .step{padding:4px 10px;border:1px solid var(--fr-line);background:var(--fr-bg);color:var(--fr-fg)}
+  .flow .arr{color:var(--fr-line-strong);padding:0 8px}
+  .flow .ok{color:var(--fr-success);padding-left:12px}
+
+  /* ---------- sections ---------- */
+  section{margin-top:56px}
+  .sec-head{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--fr-line);padding-bottom:12px;margin-bottom:22px}
+  .sec-num{font-family:'Doto','Geist Mono',monospace;font-weight:900;font-size:22px;color:var(--lab10-yellow)}
+  .sec-title{font-family:'Geist Mono',monospace;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--fr-fg)}
+  .sec-tag{margin-left:auto;font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--fr-fg-muted)}
+
+  .down{ text-align:center;color:var(--fr-line-strong);font-family:'Geist Mono',monospace;font-size:15px;padding:10px 0 0;user-select:none}
+  .down span{display:inline-block;animation:drop 1.6s ease-in-out infinite}
+  @keyframes drop{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+
+  /* ---------- cards ---------- */
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .g4{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  .card{
+    position:relative;
+    background:var(--fr-surface);
+    border:1px solid var(--fr-line);
+    padding:18px 18px 16px;
+    transition:border-color .15s,transform .15s,background .15s;
+  }
+  .card:hover{border-color:var(--fr-pixel-2);background:var(--fr-hover);transform:translateY(-2px)}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--ac,var(--fr-pixel-2))}
+  .card .meta{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .card .glyph{font-family:'Geist Mono',monospace;font-size:12px;color:var(--ac,var(--fr-fg-muted))}
+  .card .id{font-family:'Geist Mono',monospace;font-size:11px;color:var(--fr-fg-muted);letter-spacing:.08em}
+  .card h3{font-family:'Geist Mono',monospace;font-size:15.5px;font-weight:600;color:var(--fr-fg);margin-bottom:2px}
+  .card .role{font-size:12.5px;color:var(--ac,var(--fr-fg-muted));font-weight:500;margin-bottom:8px}
+  .card p{font-size:13.5px;color:var(--fr-fg-muted)}
+  .card p code{font-family:'Geist Mono',monospace;font-size:12px;color:var(--fr-fg);background:var(--fr-bg);border:1px solid var(--fr-line);padding:1px 5px}
+
+  .ac-yellow{--ac:var(--lab10-yellow)}
+  .ac-lav{--ac:var(--lab10-lavender)}
+  .ac-danger{--ac:var(--fr-danger)}
+  .ac-warn{--ac:var(--fr-warning)}
+  .ac-ok{--ac:var(--fr-success)}
+  .ac-fg{--ac:var(--fr-fg)}
+
+  .card.hero-card{border-color:var(--fr-yellow-deep);box-shadow:inset 0 0 40px rgba(246,240,114,.04)}
+  .card.hero-card:hover{border-color:var(--lab10-yellow)}
+
+  /* ---------- callouts ---------- */
+  .callout{
+    border:1px solid var(--fr-line);border-left:3px solid var(--lab10-lavender);
+    background:var(--fr-surface);padding:18px 20px;margin-top:22px;
+  }
+  .callout h4{font-family:'Geist Mono',monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--lab10-lavender);margin-bottom:8px}
+  .callout p{font-size:14px;color:var(--fr-fg-muted)}
+  .callout.note{border-left-color:var(--fr-warning)}
+  .callout.note h4{color:var(--fr-warning)}
+
+  footer{
+    margin-top:72px;border-top:1px solid var(--fr-line);padding-top:24px;
+    font-family:'Geist Mono',monospace;font-size:12px;color:var(--fr-fg-muted);
+    display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  }
+  footer .ok{color:var(--fr-success)}
+  a{color:var(--lab10-lavender);text-decoration:none}
+  a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="terminal">
+    <span class="dot"></span>
+    <span class="cmd">$ frontier run <b>--challenge=la-caja-negra</b> --mode=hackathon<span class="cursor"></span></span>
+  </div>
+
+  <header class="hero">
+    <div>
+      <div class="kicker">Frontier · Bogotá 26 — La caja negra</div>
+      <h1>Arquitectura de<br>la <span class="hl">solución</span></h1>
+      <p class="sub">Un agente de migración que <strong>revierte la caja negra</strong>: descubre el comportamiento de un servicio legacy sin documentación —incluidos sus errores— y construye un reemplazo que responde exactamente igual.</p>
+    </div>
+    <svg class="logo" viewBox="0 0 409.72 156.43" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Frontier by Lab10">
+      <g>
+        <path fill="#ffffff" d="M314.35,155.31c-6,1.3-12.28,1.4-18.26.39-21.54-3.64-31.09-22.46-32.6-42.54-.94-12.56.17-25.44,5.49-36.84,7.48-16.01,22.85-22.7,39.81-21.21,22.87,2.01,34.51,20.97,35.92,42.11.37,5.59.4,11.22,0,16.82-1.33,18.59-10.63,36.99-30.36,41.26ZM300.56,141.73c9.02,1.56,17.22-2.52,21.32-10.63,4.32-8.55,5.04-18.84,4.77-28.61-.39-14.16-4.46-33.28-22.42-33.29-15.87-.02-21.34,15.22-22.27,28.46-1.03,14.75-.5,40.76,18.6,44.07Z"></path>
+        <path fill="#ffffff" d="M206.99,102.34c4.49,10.99,4.45,23.79.12,34.65-6.86,17.22-26.78,24.51-43.03,15.67-3.14-1.71-6.29-4.7-7.55-8.04-.67-1.77-.62-3.47-2.86-3.68-1.44-.14-3,1.24-3.15,2.74-.45,4.48,4.98,2.13,6.24,5.75.56,1.6.62,3.64-.17,4.83l-16.45-.05V57.11s16.93-.05,16.93-.05l.03,32.48c-1.54,4.78-6.75,1.45-6.59,6.36.05,1.64,1.7,2.87,3.18,2.72,2.4-.23,2.19-1.82,2.87-3.69,1.31-3.58,4.86-6.64,8.27-8.37,16.06-8.15,35.3-1.02,42.17,15.77ZM163.43,139.05c4.73,4.19,11.28,5.04,17.2,2.94,12.96-4.58,13.61-24.57,9.47-34.89-2.56-6.39-8.04-10.21-14.62-10.51-6.89-.31-12.78,2.8-15.95,8.96-4.51,8.75-4.56,26,3.9,33.5Z"></path>
+        <path fill="#ffffff" d="M65.34,137.05c-1.47-24.06,29.8-25.94,46.76-26.59,1.1-1.74.35-3.62.32-5.53-.07-4.51-3.04-8.11-7.68-9.1-3.51-.75-7.6-.62-11.14.03-5.18,1.09-8.32,4.96-8.05,10.29h-16.81c-.35-8.57,4.76-15.97,12.43-19.4,9.16-4.93,28.27-4.87,37.22-.36,4.54,2.29,7.95,6,9.44,10.86.71,2.33,1.49,4.47,1.5,7.03l.12,35.71c.02,4.85,1.02,9.32,1.9,14.25h-16.25c-1.1-2.38-.1-4.6-1.25-7.06-7.04,9.45-22.04,10.5-32.06,8.17-8.96-2.08-15.89-9.11-16.45-18.3ZM94.66,144.47c5.14,0,10.03-1.06,13.58-4.71,8.81-9.05,0-17.46,8.7-18.89,1.43-.24,2.76-1.98,2.5-3.2-.35-1.66-1.76-2.69-3.16-2.71-4.69-.05-.81,6.9-7.53,6.99-6.01.08-11.93.98-17.54,2.64-5.61,1.66-8.93,5.85-8.1,11.54.81,5.62,5.82,8.35,11.55,8.34Z"></path>
+        <path fill="#ffffff" d="M16.87,143.72c0-2.14,1.61-4.44,4.12-4.46,13.48-.13,26.86-.09,40.85-.01l.07,15.02H.03s-.03-97.22-.03-97.22l17.72.04v78.75c-.18,6.16-6.95,2.84-6.73,7.53.07,1.43,1.24,2.7,2.85,2.84,1.16.1,3.03-1.01,3.03-2.49Z"></path>
+        <path fill="#ffffff" d="M234.04,86.53c1.37-4.84,6.03-1.5,6.67-6.02.18-1.29-1.33-3.01-2.65-3.16-4.44-.49-2.74,6.48-5.98,6.6-6.39.25-12.75.13-19.25.05l.02-14.74c4.3-.03,8.07-.15,12.1-.69,6.56-.28,11.18-4.97,12.87-11.46l14.17.03v97.09s-17.95-.03-17.95-.03v-67.67Z"></path>
+        <circle fill="#f6f072" cx="364.35" cy="144.33" r="10.32"></circle>
+        <path fill="#f6f072" d="M392.96,24.75c0-4.41-3.58-7.99-7.99-7.99-.9,0-1.76-.13-2.58-.39-2.77-.85-4.95-3.03-5.8-5.8-.25-.82-.39-1.68-.39-2.58,0-4.41-3.58-7.99-7.99-7.99-4.41,0-7.99,3.58-7.99,7.99,0,.9-.13,1.76-.39,2.58-.85,2.77-3.03,4.95-5.8,5.8-.81.25-1.68.39-2.58.39-4.41,0-7.99,3.58-7.99,7.99,0,4.41,3.58,7.99,7.99,7.99.9,0,1.76.13,2.58.39,2.77.85,4.95,3.03,5.8,5.8.25.82.39,1.68.39,2.58,0,4.41,3.58,7.99,7.99,7.99.9,0,1.76.13,2.58.39,2.77.85,4.95,3.03,5.8,5.8.25.82.39,1.68.39,2.58,0,4.41,3.58,7.99,7.99,7.99,4.41,0,7.99-3.58,7.99-7.99,0-.9.13-1.76.39-2.58.85-2.77,3.03-4.95,5.8-5.8.82-.25,1.68-.39,2.58-.39,4.41,0,7.99-3.58,7.99-7.99,0-4.41-3.58-7.99-7.99-7.99-.9,0-1.76-.13-2.58-.39-2.77-.85-4.95-3.03-5.8-5.8-.25-.82-.39-1.68-.39-2.58ZM393.35,44.09c-.85,2.77-3.03,4.95-5.8,5.8-.81.25-1.68.39-2.58.39s-1.76-.13-2.58-.39c-2.77-.85-4.95-3.03-5.8-5.8-.25-.82-.39-1.68-.39-2.58,0-4.41-3.58-7.99-7.99-7.99-.9,0-1.76-.13-2.58-.39-2.77-.85-4.95-3.03-5.8-5.8-.25-.82-.39-1.68-.39-2.58s.13-1.76.39-2.58c.85-2.77,3.03-4.95,5.8-5.8.82-.25,1.68-.39,2.58-.39.9,0,1.76.13,2.58.39,2.76.85,4.95,3.03,5.8,5.8.25.82.39,1.68.39,2.58,0,4.41,3.58,7.99,7.99,7.99.9,0,1.76.13,2.58.39,2.76.85,4.95,3.03,5.8,5.8.25.82.39,1.68.39,2.58,0,.9-.13,1.76-.39,2.58Z"></path>
+        <path fill="#f6f072" d="M359.83,60.85c.85,2.77,3.03,4.95,5.8,5.8.82.25,1.68.39,2.58.39,4.41,0,7.99,3.58,7.99,7.99,0,4.41-3.58,7.99-7.99,7.99-4.41,0-7.99-3.58-7.99-7.99,0-.9-.13-1.76-.39-2.58-.85-2.77-3.03-4.95-5.8-5.8-.82-.25-1.68-.39-2.58-.39-4.41,0-7.99-3.58-7.99-7.99,0-.9-.13-1.76-.39-2.58-.85-2.77-3.03-4.95-5.8-5.8-.82-.25-1.68-.39-2.58-.39-4.41,0-7.99-3.58-7.99-7.99,0-4.41,3.58-7.99,7.99-7.99,4.41,0,7.99,3.58,7.99,7.99,0,.9.13,1.76.39,2.58.85,2.77,3.03,4.95,5.8,5.8.82.25,1.68.39,2.58.39,4.41,0,7.99,3.58,7.99,7.99,0,.9.13,1.76.39,2.58Z"></path>
+      </g>
+    </svg>
+  </header>
+
+  <div class="flow">
+    <span class="step">solicitud</span><span class="arr">→</span>
+    <span class="step" style="border-color:rgba(255,90,95,.5)">guardrails</span><span class="arr">→</span>
+    <span class="step" style="border-color:rgba(246,240,114,.5)">orchestrator</span><span class="arr">→</span>
+    <span class="step" style="border-color:rgba(169,160,236,.5)">sub_agents</span><span class="arr">→</span>
+    <span class="step" style="border-color:rgba(62,207,142,.5)">sandbox</span><span class="arr">→</span>
+    <span class="step">respuesta</span>
+    <span class="ok">✓</span>
+  </div>
+
+  <!-- 01 · INGRESO -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">01_</span>
+      <span class="sec-title">Ingreso</span>
+      <span class="sec-tag">punto de entrada &amp; seguridad</span>
+    </div>
+    <div class="grid g2">
+      <div class="card ac-fg">
+        <div class="meta"><span class="glyph">→</span><span class="id">entry_point</span></div>
+        <h3>API Backend</h3>
+        <div class="role">Puerta de entrada del sistema</div>
+        <p>Expone la API que actúa como único punto de entrada: recibe las solicitudes del cliente y dispara la ejecución de todo el flujo del sistema.</p>
+      </div>
+      <div class="card ac-danger">
+        <div class="meta"><span class="glyph">[ ! ]</span><span class="id">security</span></div>
+        <h3>Guardrails Service</h3>
+        <div class="role">Seguridad &amp; control de scope</div>
+        <p>Analiza cada solicitud entrante <em>antes</em> de levantar el resto de la infraestructura. El agente opera con un scope definido: no responde consultas fuera de dominio y resiste <code>prompt injections</code> y otros vectores de ataque.</p>
+      </div>
+    </div>
+    <div class="down"><span>↓</span></div>
+  </section>
+
+  <!-- 02 · NÚCLEO -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">02_</span>
+      <span class="sec-title">Núcleo</span>
+      <span class="sec-tag">planificación &amp; delegación</span>
+    </div>
+    <div class="grid g2">
+      <div class="card ac-yellow hero-card">
+        <div class="meta"><span class="glyph">✦</span><span class="id">orchestration</span></div>
+        <h3>Orchestrator Service</h3>
+        <div class="role">Agente orquestador · <code>deepagents</code> (LangChain)</div>
+        <p>Asume la tarea de punta a punta: planifica, delega y conduce el flujo completo del discovery hasta la ejecución total de la migración.</p>
+      </div>
+      <div class="card ac-lav">
+        <div class="meta"><span class="glyph">»</span><span class="id">workforce</span></div>
+        <h3>Sub Agents Service</h3>
+        <div class="role">Fuerza de tarea especializada</div>
+        <p>Subagentes con scope y herramientas propios, disponibles para el orquestador. Distribuyen la carga de trabajo y acotan el consumo de contexto de cada paso.</p>
+      </div>
+    </div>
+    <div class="down"><span>↓</span></div>
+  </section>
+
+  <!-- 03 · CAPACIDADES -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">03_</span>
+      <span class="sec-title">Capacidades</span>
+      <span class="sec-tag">servicios compartidos</span>
+    </div>
+    <div class="grid g4">
+      <div class="card ac-lav">
+        <div class="meta"><span class="glyph">~</span><span class="id">llm</span></div>
+        <h3>LLM Gateway</h3>
+        <div class="role">Consumo de LLMs</div>
+        <p>Acceso unificado a los modelos: abstrae proveedores, enruta las llamadas y centraliza el control de uso.</p>
+      </div>
+      <div class="card ac-lav">
+        <div class="meta"><span class="glyph">¶</span><span class="id">prompts</span></div>
+        <h3>Prompt Service</h3>
+        <div class="role">Gestión de prompts</div>
+        <p>Administra y sirve los prompts del sistema de forma centralizada y versionada.</p>
+      </div>
+      <div class="card ac-lav">
+        <div class="meta"><span class="glyph">⚙</span><span class="id">tools</span></div>
+        <h3>Tool Service</h3>
+        <div class="role">Herramientas internas</div>
+        <p>Expone las tools internas que agentes y subagentes invocan durante la ejecución.</p>
+      </div>
+      <div class="card ac-lav">
+        <div class="meta"><span class="glyph">⇄</span><span class="id">mcp</span></div>
+        <h3>MCP Gateway</h3>
+        <div class="role">Consumo de MCPs</div>
+        <p>Gateway para descubrir, conectar y utilizar servidores MCP externos.</p>
+      </div>
+    </div>
+    <div class="down"><span>↓</span></div>
+  </section>
+
+  <!-- 04 · ESTADO & MEMORIA -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">04_</span>
+      <span class="sec-title">Estado &amp; memoria</span>
+      <span class="sec-tag">continuidad de largo plazo</span>
+    </div>
+    <div class="grid g2">
+      <div class="card ac-warn">
+        <div class="meta"><span class="glyph">◈</span><span class="id">long_term</span></div>
+        <h3>Memory Service</h3>
+        <div class="role">Memoria de largo plazo del proyecto</div>
+        <p>Almacena los artefactos propios de cada proyecto de migración: estado actual, antecedentes del servicio a migrar y aprendizajes acumulados entre sesiones.</p>
+      </div>
+      <div class="card ac-warn">
+        <div class="meta"><span class="glyph">≡</span><span class="id">session</span></div>
+        <h3>Session Service</h3>
+        <div class="role">Historial de sesión</div>
+        <p>Persiste la conversación con el agente: memoria de corto plazo que da continuidad al trabajo dentro de cada sesión.</p>
+      </div>
+    </div>
+    <div class="callout">
+      <h4>¿Por qué memoria de largo plazo?</h4>
+      <p>Las migraciones son proyectos de largo plazo: pueden requerir múltiples sesiones o quedar a mitad de camino. Con memoria persistente, el agente retoma el trabajo sabiendo el estado exacto del proyecto, los antecedentes del servicio y todo lo ya descubierto.</p>
+    </div>
+    <div class="down"><span>↓</span></div>
+  </section>
+
+  <!-- 05 · EJECUCIÓN -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">05_</span>
+      <span class="sec-title">Ejecución</span>
+      <span class="sec-tag">código en entorno aislado</span>
+    </div>
+    <div class="grid">
+      <div class="card ac-ok">
+        <div class="meta"><span class="glyph">▶</span><span class="id">sandbox</span></div>
+        <h3>Codesandbox Gateway</h3>
+        <div class="role">Ejecución segura de código</div>
+        <p>Gateway hacia <code>codesandboxes</code> aisladas, donde el agente ejecuta y prueba código de forma segura: sondea el servicio original, valida hipótesis y verifica que el reemplazo responda exactamente igual.</p>
+      </div>
+    </div>
+    <div class="callout note">
+      <h4>Nota de implementación</h4>
+      <p>El diseño objetivo del sistema es de <strong>microservicios</strong>. Como punto de partida —y dado el tiempo delimitado de la hackathon— se implementa como un <strong>monolito modular</strong>, preservando los límites entre módulos para poder extraer servicios cuando el momento lo requiera.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>frontier-hackathon · la caja negra</span>
+    <span><span class="ok">✓</span> diseño: sistema de microservicios · build: monolito modular</span>
+  </footer>
+
+</div>
+</body>
+</html>

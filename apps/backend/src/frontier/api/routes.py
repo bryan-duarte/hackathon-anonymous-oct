@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 
 from frontier.api.deps import get_clients, require_platform_key
 from frontier.container import Clients
@@ -26,15 +27,18 @@ async def health() -> dict[str, str]:
 @migrations_router.post(
     "",
     status_code=status.HTTP_202_ACCEPTED,
+    response_model=MigrationAccepted,
     responses={status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": MigrationRejected}},
 )
-async def submit_migration(request: MigrationRequest, clients: ClientsDep) -> MigrationAccepted:
-    result = await clients.migrations.submit(request)
-    if isinstance(result, MigrationRejected):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=result.model_dump()
+async def submit_migration(
+    request: MigrationRequest, clients: ClientsDep
+) -> MigrationAccepted | JSONResponse:
+    submission = await clients.migrations.submit(request)
+    if isinstance(submission, MigrationRejected):
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content=submission.model_dump()
         )
-    return result
+    return submission
 
 
 @migrations_router.get("/{job_id}")

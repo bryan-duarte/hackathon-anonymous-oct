@@ -47,7 +47,7 @@ class MigrationsService:
         self._tasks: set[asyncio.Task[None]] = set()
 
     async def submit(self, request: MigrationRequest) -> MigrationAccepted | MigrationRejected:
-        base_url = str(request.base_url)
+        base_url = str(request.base_url).rstrip("/")
         verdict = await self._guardrails.check(
             GuardrailCheckRequest(
                 base_url=base_url,
@@ -104,50 +104,52 @@ class MigrationsService:
     async def _run(self, job: Job) -> None:
         async with self._semaphore:
             try:
-                await self._jobs.update(
-                    UpdateJobRequest(
-                        job_id=job.id, status=JobStatus.RUNNING, phase=JobPhase.DISCOVERY
-                    )
-                )
-                await self._jobs.append_event(
-                    AppendEventRequest(
-                        job_id=job.id, phase=JobPhase.DISCOVERY, message="orchestrator started"
-                    )
-                )
-                result = await self._orchestrator.run(
-                    RunMigrationRequest(
-                        job_id=job.id,
-                        base_url=job.base_url,
-                        context=job.context,
-                        service_key_ref=job.service_key_ref,
-                        team_token_ref=job.team_token_ref,
-                    )
-                )
-            except Exception as exc:
-                await self._fail(job, exc)
-                return
+                await self._migrate(job)
+            except Exception as error:
+                try:
+                    await self._fail(job, error)
+                except Exception:
+                    logger.exception("could not record failure of migration %s", job.id)
 
-            await self._jobs.update(
-                UpdateJobRequest(
-                    job_id=job.id,
-                    status=JobStatus.SUCCEEDED,
-                    phase=JobPhase.DONE,
-                    deployed_url=result.deployed_url,
-                )
+    async def _migrate(self, job: Job) -> None:
+        await self._jobs.update(
+            UpdateJobRequest(job_id=job.id, status=JobStatus.RUNNING, phase=JobPhase.DISCOVERY)
+        )
+        await self._jobs.append_event(
+            AppendEventRequest(
+                job_id=job.id, phase=JobPhase.DISCOVERY, message="orchestrator started"
             )
-            await self._jobs.append_event(
-                AppendEventRequest(
-                    job_id=job.id,
-                    phase=JobPhase.DONE,
-                    message=f"deployed at {result.deployed_url}",
-                )
+        )
+        migration = await self._orchestrator.run(
+            RunMigrationRequest(
+                job_id=job.id,
+                base_url=job.base_url,
+                context=job.context,
+                service_key_ref=job.service_key_ref,
+                team_token_ref=job.team_token_ref,
             )
+        )
+        await self._jobs.update(
+            UpdateJobRequest(
+                job_id=job.id,
+                status=JobStatus.SUCCEEDED,
+                phase=JobPhase.DONE,
+                deployed_url=migration.deployed_url,
+            )
+        )
+        await self._jobs.append_event(
+            AppendEventRequest(
+                job_id=job.id,
+                phase=JobPhase.DONE,
+                message=f"deployed at {migration.deployed_url}",
+            )
+        )
 
-    async def _fail(self, job: Job, exc: Exception) -> None:
+    async def _fail(self, job: Job, error: Exception) -> None:
         # Exception text may echo upstream responses, so scrub secrets before persisting it.
         redacted = await self._secrets.redact(
             RedactRequest(
-                text=f"{type(exc).__name__}: {exc}",
+                text=f"{type(error).__name__}: {error}",
                 refs=[job.service_key_ref, job.team_token_ref],
             )
         )

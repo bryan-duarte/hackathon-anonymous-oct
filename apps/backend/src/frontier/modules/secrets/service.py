@@ -36,10 +36,15 @@ class SecretsService:
         return ResolvedSecret(ref=request.ref, value=SecretStr(value))
 
     async def redact(self, request: RedactRequest) -> RedactedText:
+        labelled_secrets = [await self._load(ref) for ref in request.refs]
+        longest_first = sorted(
+            ((label, secret) for label, secret in labelled_secrets if secret),
+            key=lambda labelled_secret: len(labelled_secret[1]),
+            reverse=True,
+        )
         text = request.text
-        for ref in request.refs:
-            label, value = await self._load(ref)
-            text = text.replace(value, f"[REDACTED:{label}]")
+        for label, secret in longest_first:
+            text = text.replace(secret, f"[REDACTED:{label}]")
         return RedactedText(text=text)
 
     async def _load(self, ref: str) -> tuple[str, str]:

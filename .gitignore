@@ -5,6 +5,18 @@ build/
 dist/
 wheels/
 *.egg-info
+docs
 
 # Virtual environments
 .venv
+
+# Node / Turborepo
+node_modules/
+.turbo/
+
+# Local env and data
+.env
+*.db
+*.db-shm
+*.db-wal
+apps/backend/data/

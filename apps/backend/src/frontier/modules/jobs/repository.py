@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     team_token_ref TEXT NOT NULL,
     deployed_url TEXT,
     error TEXT,
+    verdict TEXT,
+    summary TEXT,
+    artifacts_path TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -27,7 +30,10 @@ CREATE TABLE IF NOT EXISTS job_events (
 CREATE INDEX IF NOT EXISTS idx_job_events_job_id ON job_events (job_id, id);
 """
 
-UPDATABLE_COLUMNS = frozenset({"status", "phase", "deployed_url", "error"})
+UPDATABLE_COLUMNS = frozenset(
+    {"status", "phase", "deployed_url", "error", "verdict", "summary", "artifacts_path"}
+)
+ADDED_JOB_COLUMNS = {"verdict": "TEXT", "summary": "TEXT", "artifacts_path": "TEXT"}
 
 
 class JobsRepository:
@@ -36,7 +42,17 @@ class JobsRepository:
 
     async def init_schema(self) -> None:
         await self._conn.executescript(SCHEMA)
+        await self._add_missing_job_columns()
         await self._conn.commit()
+
+    async def _add_missing_job_columns(self) -> None:
+        existing_columns = {
+            column["name"]
+            for column in await self._conn.execute_fetchall("PRAGMA table_info(jobs)")
+        }
+        for column_name, column_type in ADDED_JOB_COLUMNS.items():
+            if column_name not in existing_columns:
+                await self._conn.execute(f"ALTER TABLE jobs ADD COLUMN {column_name} {column_type}")
 
     async def insert_job(self, job: Mapping[str, Any]) -> None:
         columns = ", ".join(job)

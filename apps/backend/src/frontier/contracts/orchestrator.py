@@ -1,6 +1,7 @@
 from pydantic import Field
 
 from frontier.contracts._base import MAX_AGENT_INPUT_LENGTH, ApiModel, StrictModel
+from frontier.contracts.jobs import MigrationVerdictKind
 from frontier.contracts.sessions import SessionId
 
 
@@ -13,7 +14,10 @@ class RunMigrationRequest(StrictModel):
 
 
 class RunMigrationResult(StrictModel):
-    deployed_url: str
+    verdict: MigrationVerdictKind
+    summary: str
+    artifacts_path: str
+    deployed_url: str | None = None
 
 
 class ChatRequest(ApiModel):

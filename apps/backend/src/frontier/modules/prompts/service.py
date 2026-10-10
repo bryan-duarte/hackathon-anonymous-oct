@@ -1,12 +1,23 @@
 from pydantic import BaseModel
 
 from frontier.contracts.prompts import PromptId
+from frontier.modules.prompts.api_analyst import ApiAnalystPrompt
+from frontier.modules.prompts.api_scientist import ApiScientistPrompt
 from frontier.modules.prompts.base import Prompt
+from frontier.modules.prompts.coder import CoderPrompt
 from frontier.modules.prompts.errors import DuplicatePromptIdError, MissingPromptsError
 from frontier.modules.prompts.greeting import GreetingPrompt
 from frontier.modules.prompts.migration_agent import MigrationAgentPrompt
+from frontier.modules.prompts.migration_orchestrator import MigrationOrchestratorPrompt
 
-PROMPTS: tuple[Prompt, ...] = (MigrationAgentPrompt(), GreetingPrompt())
+PROMPTS: tuple[Prompt, ...] = (
+    MigrationAgentPrompt(),
+    GreetingPrompt(),
+    MigrationOrchestratorPrompt(),
+    ApiAnalystPrompt(),
+    ApiScientistPrompt(),
+    CoderPrompt(),
+)
 
 
 class PromptsService:

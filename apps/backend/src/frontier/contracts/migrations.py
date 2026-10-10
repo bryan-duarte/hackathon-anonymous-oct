@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import Field, HttpUrl, SecretStr
 
 from frontier.contracts._base import MAX_AGENT_INPUT_LENGTH, ApiModel
-from frontier.contracts.jobs import JobEvent, JobPhase, JobStatus
+from frontier.contracts.jobs import JobEvent, JobPhase, JobStatus, MigrationVerdictKind
 
 MIN_SECRET_LENGTH = 8
 
@@ -32,5 +32,8 @@ class MigrationStatus(ApiModel):
     events: list[JobEvent]
     deployed_url: str | None
     error: str | None
+    verdict: MigrationVerdictKind | None
+    summary: str | None
+    artifacts_path: str | None
     created_at: datetime
     updated_at: datetime

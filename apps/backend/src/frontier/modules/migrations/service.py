@@ -13,6 +13,7 @@ from frontier.contracts.jobs import (
     Job,
     JobPhase,
     JobStatus,
+    MigrationVerdictKind,
     UpdateJobRequest,
 )
 from frontier.contracts.migrations import (
@@ -91,6 +92,9 @@ class MigrationsService:
             events=job.events,
             deployed_url=job.deployed_url,
             error=job.error,
+            verdict=job.verdict,
+            summary=job.summary,
+            artifacts_path=job.artifacts_path,
             created_at=job.created_at,
             updated_at=job.updated_at,
         )
@@ -112,11 +116,11 @@ class MigrationsService:
 
     async def _migrate(self, job: Job) -> None:
         await self._jobs.update(
-            UpdateJobRequest(job_id=job.id, status=JobStatus.RUNNING, phase=JobPhase.DISCOVERY)
+            UpdateJobRequest(job_id=job.id, status=JobStatus.RUNNING, phase=JobPhase.API_ANALYSIS)
         )
         await self._jobs.append_event(
             AppendEventRequest(
-                job_id=job.id, phase=JobPhase.DISCOVERY, message="orchestrator started"
+                job_id=job.id, phase=JobPhase.API_ANALYSIS, message="orchestrator started"
             )
         )
         migration = await self._orchestrator.run(
@@ -128,19 +132,26 @@ class MigrationsService:
                 team_token_ref=job.team_token_ref,
             )
         )
+        redacted_summary = await self._secrets.redact(
+            RedactRequest(text=migration.summary, refs=[job.service_key_ref, job.team_token_ref])
+        )
+        migration_accepted = migration.verdict == MigrationVerdictKind.ACCEPTED
         await self._jobs.update(
             UpdateJobRequest(
                 job_id=job.id,
-                status=JobStatus.SUCCEEDED,
+                status=JobStatus.SUCCEEDED if migration_accepted else JobStatus.FAILED,
                 phase=JobPhase.DONE,
-                deployed_url=migration.deployed_url,
+                verdict=migration.verdict,
+                summary=redacted_summary.text,
+                artifacts_path=migration.artifacts_path,
+                error=None if migration_accepted else redacted_summary.text,
             )
         )
         await self._jobs.append_event(
             AppendEventRequest(
                 job_id=job.id,
                 phase=JobPhase.DONE,
-                message=f"deployed at {migration.deployed_url}",
+                message=f"migration {migration.verdict}; artifacts at {migration.artifacts_path}",
             )
         )
 

@@ -19,6 +19,7 @@ from frontier.clients.secrets import SecretsClient
 from frontier.clients.sessions import SessionsClient
 from frontier.clients.subagents import SubagentsClient
 from frontier.clients.tools import ToolsClient
+from frontier.contracts.llm import AgentRole
 from frontier.core.config import Settings
 from frontier.modules.deployer import DeployerService
 from frontier.modules.guardrails import DecisionModel, GuardrailsService
@@ -81,6 +82,7 @@ async def build_clients(
             api_key=settings.openrouter_api_key,
             base_url=settings.llm_base_url,
             model=settings.llm_model,
+            models_by_role=_models_by_role(settings),
             max_tokens=settings.llm_max_tokens,
             timeout_s=settings.llm_timeout_s,
             max_retries=settings.llm_max_retries,
@@ -94,13 +96,30 @@ async def build_clients(
             project_id=settings.vercel_project_id,
             runtime=settings.sandbox_runtime,
             timeout_s=settings.sandbox_timeout_s,
+            job_timeout_s=settings.migration_sandbox_timeout_s,
             command_timeout_s=settings.sandbox_command_timeout_s,
+            secrets=secrets,
         )
     )
+    tools = ToolsClient(
+        ToolsService(
+            secrets=secrets, jobs=jobs, sandbox=sandbox, probe_timeout_s=settings.probe_timeout_s
+        )
+    )
+    subagents = SubagentsClient(SubagentsService(prompts=prompts, llm=llm))
     sessions = SessionsClient(SessionsService(checkpointer))
     orchestrator = OrchestratorClient(
         OrchestratorService(
-            llm=llm, prompts=prompts, sandbox=sandbox, sessions=sessions, guardrails=guardrails
+            llm=llm,
+            prompts=prompts,
+            sandbox=sandbox,
+            sessions=sessions,
+            guardrails=guardrails,
+            tools=tools,
+            subagents=subagents,
+            artifacts_dir=settings.artifacts_dir,
+            sandbox_timeout_s=settings.migration_sandbox_timeout_s,
+            max_phase_attempts=settings.migration_max_phase_attempts,
         )
     )
     migrations = MigrationsClient(
@@ -119,13 +138,22 @@ async def build_clients(
         secrets=secrets,
         guardrails=guardrails,
         orchestrator=orchestrator,
-        subagents=SubagentsClient(SubagentsService()),
+        subagents=subagents,
         llm=llm,
         prompts=prompts,
-        tools=ToolsClient(ToolsService()),
+        tools=tools,
         mcp=McpClient(McpGatewayService()),
         memory=MemoryClient(MemoryService()),
         sessions=sessions,
         sandbox=sandbox,
         deployer=DeployerClient(DeployerService()),
     )
+
+
+def _models_by_role(settings: Settings) -> dict[AgentRole, str]:
+    return {
+        AgentRole.ORCHESTRATOR: settings.orchestrator_model or settings.llm_model,
+        AgentRole.ANALYST: settings.analyst_model or settings.llm_model,
+        AgentRole.SCIENTIST: settings.scientist_model or settings.llm_model,
+        AgentRole.CODER: settings.coder_model or settings.llm_model,
+    }

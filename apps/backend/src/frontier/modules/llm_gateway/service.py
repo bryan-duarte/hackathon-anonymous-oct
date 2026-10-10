@@ -1,9 +1,13 @@
+from collections.abc import Mapping
 from functools import cached_property
 from typing import Any
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models import BaseChatModel
 from pydantic import PrivateAttr, SecretStr
+
+from frontier.contracts.llm import AgentRole
+from frontier.modules.llm_gateway.errors import MissingRoleModelsError
 
 
 class BearerAuthChatAnthropic(ChatAnthropic):
@@ -50,18 +54,31 @@ class LlmGatewayService:
         api_key: SecretStr,
         base_url: str,
         model: str,
+        models_by_role: Mapping[AgentRole, str],
         max_tokens: int,
         timeout_s: float,
         max_retries: int,
     ) -> None:
-        self._chat_model = BearerAuthChatAnthropic(
-            bearer_token=api_key,
-            model=model,
-            base_url=base_url,
-            max_tokens=max_tokens,
-            timeout_s=timeout_s,
-            max_retries=max_retries,
-        )
+        missing_roles = set(AgentRole) - models_by_role.keys()
+        if missing_roles:
+            raise MissingRoleModelsError(missing_roles)
+
+        self._default_model = model
+        self._models_by_role = dict(models_by_role)
+        self._chat_models: dict[str, BaseChatModel] = {
+            model_name: BearerAuthChatAnthropic(
+                bearer_token=api_key,
+                model=model_name,
+                base_url=base_url,
+                max_tokens=max_tokens,
+                timeout_s=timeout_s,
+                max_retries=max_retries,
+            )
+            for model_name in {model, *models_by_role.values()}
+        }
 
     def chat_model(self) -> BaseChatModel:
-        return self._chat_model
+        return self._chat_models[self._default_model]
+
+    def chat_model_for(self, role: AgentRole) -> BaseChatModel:
+        return self._chat_models[self._models_by_role[role]]

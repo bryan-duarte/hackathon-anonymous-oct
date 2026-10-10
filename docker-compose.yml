@@ -5,6 +5,7 @@ services:
     environment:
       FRONTIER_DATABASE_PATH: /data/frontier.db
       FRONTIER_CHECKPOINT_DATABASE_PATH: /data/checkpoints.db
+      FRONTIER_ARTIFACTS_DIR: /data/artifacts
     ports:
       - "8000:8000"
     volumes:

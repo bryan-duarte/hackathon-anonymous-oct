@@ -25,6 +25,9 @@ class MigrationAgentReport(StrictModel):
 
 
 class ApiSurfaceSummary(StrictModel):
+    """Final step: call this exactly once, after writing the API surface report, to hand your
+    summary back to the lead. Your task is not finished until you call it."""
+
     report_path: str = Field(description="Absolute sandbox path of the API surface report.")
     contract_source: str = Field(
         description="Where the endpoint list came from: a spec URL such as /openapi.json, "
@@ -41,6 +44,9 @@ class ApiSurfaceSummary(StrictModel):
 
 
 class BehaviorCatalogSummary(StrictModel):
+    """Final step: call this exactly once, after writing the behavior report and behaviors.json, to
+    hand your summary back to the lead. Your task is not finished until you call it."""
+
     report_path: str = Field(description="Absolute sandbox path of the behavior report.")
     catalogue_path: str = Field(description="Absolute sandbox path of behaviors.json.")
     endpoint_count: int = Field(description="Number of distinct endpoints characterized.")
@@ -52,6 +58,9 @@ class BehaviorCatalogSummary(StrictModel):
 
 
 class CodingSummary(StrictModel):
+    """Final step: call this exactly once, after writing the coding report, to hand your summary
+    back to the lead. Your task is not finished until you call it."""
+
     phase: Literal["characterization", "implementation"] = Field(
         description="Which coding task was performed."
     )
@@ -65,6 +74,9 @@ class CodingSummary(StrictModel):
 
 
 class MigrationVerdict(StrictModel):
+    """Final step: call this exactly once, after your final hard checks, to deliver the migration
+    verdict. The migration is not finished until you call it."""
+
     verdict: MigrationVerdictKind = Field(
         strict=False, description="accepted only if every gate check passed."
     )

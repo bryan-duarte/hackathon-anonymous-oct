@@ -1,0 +1,13 @@
+services:
+  backend:
+    build: ./apps/backend
+    env_file: ./apps/backend/.env
+    environment:
+      FRONTIER_DATABASE_PATH: /data/frontier.db
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend-data:/data
+
+volumes:
+  backend-data:

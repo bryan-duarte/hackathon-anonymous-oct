@@ -1,0 +1,21 @@
+FROM python:3.11-slim
+
+COPY --from=ghcr.io/astral-sh/uv:0.6.14 /uv /bin/uv
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    FRONTIER_DATABASE_PATH=/data/frontier.db
+
+RUN useradd --system --create-home --uid 10001 app && mkdir /data && chown app /data
+
+WORKDIR /app
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
+
+COPY src ./src
+RUN uv sync --frozen --no-dev
+
+USER app
+EXPOSE 8000
+CMD ["uv", "run", "--no-sync", "uvicorn", "frontier.app:app", "--host", "0.0.0.0", "--port", "8000"]

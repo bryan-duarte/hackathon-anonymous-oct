@@ -8,6 +8,7 @@ dependencies = [
     "cryptography>=50.0.2",
     "deepagents==0.7.23",
     "fastapi>=0.143.0",
+    "httpx>=0.28.1",
     "langchain-anthropic==1.7.5",
     "langchain-vercel-sandbox==0.0.2",
     "langgraph-checkpoint-sqlite>=3.1.1",
@@ -37,3 +38,7 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "ruff>=0.17.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

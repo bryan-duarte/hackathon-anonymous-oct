@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING
 
+from frontier.contracts.guardrails import GuardrailRejection
 from frontier.contracts.migrations import (
     GetMigrationStatusRequest,
     MigrationAccepted,
-    MigrationRejected,
     MigrationRequest,
     MigrationStatus,
 )
@@ -16,7 +16,7 @@ class MigrationsClient:
     def __init__(self, service: "MigrationsService") -> None:
         self._service = service
 
-    async def submit(self, request: MigrationRequest) -> MigrationAccepted | MigrationRejected:
+    async def submit(self, request: MigrationRequest) -> MigrationAccepted | GuardrailRejection:
         return await self._service.submit(request)
 
     async def get_status(self, request: GetMigrationStatusRequest) -> MigrationStatus | None:

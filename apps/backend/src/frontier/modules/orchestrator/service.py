@@ -6,10 +6,12 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
+from frontier.clients.guardrails import GuardrailsClient
 from frontier.clients.llm import LlmClient
 from frontier.clients.prompts import PromptsClient
 from frontier.clients.sandbox import SandboxClient
 from frontier.clients.sessions import SessionsClient
+from frontier.contracts.guardrails import GuardrailCheckRequest, GuardrailRejection
 from frontier.contracts.orchestrator import (
     ChatReply,
     ChatRequest,
@@ -34,11 +36,13 @@ class OrchestratorService:
         prompts: PromptsClient,
         sandbox: SandboxClient,
         sessions: SessionsClient,
+        guardrails: GuardrailsClient,
     ) -> None:
         self._llm = llm
         self._prompts = prompts
         self._sandbox = sandbox
         self._sessions = sessions
+        self._guardrails = guardrails
 
     async def greet(self) -> Greeting:
         greeting_task = self._prompts.get_text(PromptId.GREETING)
@@ -54,7 +58,11 @@ class OrchestratorService:
             raise MissingStructuredResponseError(Greeting)
         return greeting
 
-    async def chat(self, request: ChatRequest) -> ChatReply:
+    async def chat(self, request: ChatRequest) -> ChatReply | GuardrailRejection:
+        verdict = await self._guardrails.check(GuardrailCheckRequest(context=request.message))
+        if not verdict.allowed:
+            return GuardrailRejection(violations=verdict.violations)
+
         session_id = request.session_id or self._sessions.new_session_id()
         async with self._sandbox.session() as backend:
             agent = self._build_agent(backend=backend, checkpointer=self._sessions.checkpointer())

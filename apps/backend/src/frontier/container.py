@@ -21,7 +21,7 @@ from frontier.clients.subagents import SubagentsClient
 from frontier.clients.tools import ToolsClient
 from frontier.core.config import Settings
 from frontier.modules.deployer import DeployerService
-from frontier.modules.guardrails import GuardrailsService
+from frontier.modules.guardrails import DecisionModel, GuardrailsService
 from frontier.modules.jobs import JobsRepository, JobsService
 from frontier.modules.llm_gateway import LlmGatewayService
 from frontier.modules.mcp_gateway import McpGatewayService
@@ -64,7 +64,18 @@ async def build_clients(
 
     jobs = JobsClient(JobsService(jobs_repository))
     secrets = SecretsClient(SecretsService(secrets_repository, settings.secrets_master_key))
-    guardrails = GuardrailsClient(GuardrailsService())
+    guardrails = GuardrailsClient(
+        GuardrailsService(
+            decision_model=DecisionModel(
+                api_key=settings.openrouter_api_key,
+                url=settings.guardrail_url,
+                model=settings.guardrail_model,
+                timeout_s=settings.guardrail_timeout_s,
+            ),
+            block_threshold=settings.guardrail_block_threshold,
+            chunk_chars=settings.guardrail_chunk_chars,
+        )
+    )
     llm = LlmClient(
         LlmGatewayService(
             api_key=settings.openrouter_api_key,
@@ -88,7 +99,9 @@ async def build_clients(
     )
     sessions = SessionsClient(SessionsService(checkpointer))
     orchestrator = OrchestratorClient(
-        OrchestratorService(llm=llm, prompts=prompts, sandbox=sandbox, sessions=sessions)
+        OrchestratorService(
+            llm=llm, prompts=prompts, sandbox=sandbox, sessions=sessions, guardrails=guardrails
+        )
     )
     migrations = MigrationsClient(
         MigrationsService(

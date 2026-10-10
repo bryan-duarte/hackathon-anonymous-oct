@@ -5,7 +5,7 @@ from frontier.clients.guardrails import GuardrailsClient
 from frontier.clients.jobs import JobsClient
 from frontier.clients.orchestrator import OrchestratorClient
 from frontier.clients.secrets import SecretsClient
-from frontier.contracts.guardrails import GuardrailCheckRequest
+from frontier.contracts.guardrails import GuardrailCheckRequest, GuardrailRejection
 from frontier.contracts.jobs import (
     AppendEventRequest,
     CreateJobRequest,
@@ -18,7 +18,6 @@ from frontier.contracts.jobs import (
 from frontier.contracts.migrations import (
     GetMigrationStatusRequest,
     MigrationAccepted,
-    MigrationRejected,
     MigrationRequest,
     MigrationStatus,
 )
@@ -46,7 +45,7 @@ class MigrationsService:
         self._semaphore = asyncio.Semaphore(max_concurrent_jobs)
         self._tasks: set[asyncio.Task[None]] = set()
 
-    async def submit(self, request: MigrationRequest) -> MigrationAccepted | MigrationRejected:
+    async def submit(self, request: MigrationRequest) -> MigrationAccepted | GuardrailRejection:
         base_url = str(request.base_url).rstrip("/")
         verdict = await self._guardrails.check(
             GuardrailCheckRequest(
@@ -56,7 +55,7 @@ class MigrationsService:
             )
         )
         if not verdict.allowed:
-            return MigrationRejected(reasons=verdict.reasons)
+            return GuardrailRejection(violations=verdict.violations)
 
         service_key = await self._secrets.store(
             StoreSecretRequest(label="service_key", value=request.service_key)

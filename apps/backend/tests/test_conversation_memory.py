@@ -10,6 +10,7 @@ from langchain_core.messages import AIMessage
 from langgraph.checkpoint.base import BaseCheckpointSaver
 
 from frontier.clients.sessions import SessionsClient
+from frontier.contracts.guardrails import GuardrailCheckRequest, GuardrailVerdict
 from frontier.contracts.orchestrator import ChatRequest
 from frontier.contracts.prompts import PromptId
 from frontier.contracts.sessions import GetHistoryRequest, SessionMessage
@@ -44,6 +45,11 @@ class _InMemorySandbox:
         yield StateBackend()
 
 
+class _AllowAllGuardrails:
+    async def check(self, request: GuardrailCheckRequest) -> GuardrailVerdict:
+        return GuardrailVerdict(allowed=True, violations=[])
+
+
 def _orchestrator(
     checkpointer: BaseCheckpointSaver, scripted_replies: list[str]
 ) -> OrchestratorService:
@@ -52,6 +58,7 @@ def _orchestrator(
         prompts=_FakePrompts(),
         sandbox=_InMemorySandbox(),
         sessions=SessionsClient(SessionsService(checkpointer)),
+        guardrails=_AllowAllGuardrails(),
     )
 
 

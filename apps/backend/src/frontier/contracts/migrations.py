@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import Field, HttpUrl, SecretStr
 
-from frontier.contracts._base import ApiModel
+from frontier.contracts._base import MAX_AGENT_INPUT_LENGTH, ApiModel
 from frontier.contracts.jobs import JobEvent, JobPhase, JobStatus
 
 MIN_SECRET_LENGTH = 8
@@ -12,17 +12,13 @@ class MigrationRequest(ApiModel):
     base_url: HttpUrl
     service_key: SecretStr = Field(min_length=MIN_SECRET_LENGTH)
     team_token: SecretStr = Field(min_length=MIN_SECRET_LENGTH)
-    context: str = Field(min_length=1, max_length=200_000)
+    context: str = Field(min_length=1, max_length=MAX_AGENT_INPUT_LENGTH)
 
 
 class MigrationAccepted(ApiModel):
     job_id: str
     status: JobStatus
     status_url: str
-
-
-class MigrationRejected(ApiModel):
-    reasons: list[str]
 
 
 class GetMigrationStatusRequest(ApiModel):

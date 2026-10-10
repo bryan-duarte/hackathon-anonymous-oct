@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 
+MAX_AGENT_INPUT_LENGTH = 200_000
+
 
 class StrictModel(BaseModel):
     """Internal module contract: no coercion, no unknown fields, immutable."""

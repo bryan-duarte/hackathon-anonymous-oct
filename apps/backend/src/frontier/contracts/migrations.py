@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import Field, HttpUrl, SecretStr
 
 from frontier.contracts._base import ApiModel
+from frontier.contracts.guardrails import GuardrailViolation
 from frontier.contracts.jobs import JobEvent, JobPhase, JobStatus
 
 MIN_SECRET_LENGTH = 8
@@ -23,6 +24,7 @@ class MigrationAccepted(ApiModel):
 
 class MigrationRejected(ApiModel):
     reasons: list[str]
+    violations: list[GuardrailViolation]
 
 
 class GetMigrationStatusRequest(ApiModel):

@@ -56,7 +56,10 @@ class MigrationsService:
             )
         )
         if not verdict.allowed:
-            return MigrationRejected(reasons=verdict.reasons)
+            return MigrationRejected(
+                reasons=[violation.message for violation in verdict.violations],
+                violations=verdict.violations,
+            )
 
         service_key = await self._secrets.store(
             StoreSecretRequest(label="service_key", value=request.service_key)

@@ -13,7 +13,10 @@ from frontier.contracts.migrations import (
     MigrationStatus,
 )
 from frontier.contracts.prompts import Greeting
+from frontier.modules.guardrails import GuardrailUnavailableError
 from frontier.modules.orchestrator import MissingStructuredResponseError
+
+SAFETY_CHECK_UNAVAILABLE = "Safety check is temporarily unavailable. Please try again in a moment."
 
 router = APIRouter()
 migrations_router = APIRouter(prefix="/migrations", dependencies=[Depends(require_platform_key)])
@@ -31,12 +34,20 @@ async def health() -> dict[str, str]:
     "",
     status_code=status.HTTP_202_ACCEPTED,
     response_model=MigrationAccepted,
-    responses={status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": MigrationRejected}},
+    responses={
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": MigrationRejected},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {"description": "Safety check unavailable"},
+    },
 )
 async def submit_migration(
     request: MigrationRequest, clients: ClientsDep
 ) -> MigrationAccepted | JSONResponse:
-    submission = await clients.migrations.submit(request)
+    try:
+        submission = await clients.migrations.submit(request)
+    except GuardrailUnavailableError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=SAFETY_CHECK_UNAVAILABLE
+        ) from error
     if isinstance(submission, MigrationRejected):
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content=submission.model_dump()

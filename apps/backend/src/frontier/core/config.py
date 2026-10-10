@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     llm_timeout_s: float = Field(default=120, gt=0)
     llm_max_retries: int = Field(default=2, ge=0)
 
+    guardrail_url: str = "https://openrouter.ai/api/alpha/decisions"
+    guardrail_model: str = "typesafe/jev-1.13"
+    guardrail_timeout_s: float = Field(default=15, gt=0)
+    guardrail_block_threshold: float = Field(default=0.5, ge=0, le=1)
+    guardrail_chunk_chars: int = Field(default=60_000, ge=10_000)
+
     sandbox_runtime: str = "python3.13"
     sandbox_timeout_s: int = Field(default=600, gt=0)
     sandbox_command_timeout_s: int = Field(default=300, gt=0)

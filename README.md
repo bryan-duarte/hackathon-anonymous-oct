@@ -1,36 +1,179 @@
 <p align="center">
-  <img src="assets/frontier-logo.svg" alt="Frontier by Lab10" width="340">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="assets/frontier-logo-light.svg">
+    <img src="assets/frontier-logo.svg" alt="Frontier by Lab10" width="340">
+  </picture>
 </p>
 
 <h1 align="center">La Caja Negra</h1>
 
 <p align="center">
-  <strong>Frontier Hackathon</strong> · <a href="https://frontier.lab10.ai/">frontier.lab10.ai</a>
+  <strong>No solo una demo: una arquitectura lista para grandes empresas.</strong><br>
+  Un agente que entiende un API heredado sin código ni documentación y construye un reemplazo que se comporta exactamente igual, incluidos sus errores.
 </p>
 
 <p align="center">
-  <code>Cloud-ready</code> · <code>Segura</code> · <code>Guardrails</code> · <code>Límites</code> · <code>Escalable</code> · <code>Lista para microservicios</code> · <code>Secretos y PII</code>
+  <strong>Frontier Hackathon</strong> · Bogotá 26 · <a href="https://frontier.lab10.ai/">frontier.lab10.ai</a>
+</p>
+
+<p align="center">
+  <code>Cloud-ready</code> · <code>Segura</code> · <code>Guardrails</code> · <code>Límites</code> · <code>Escalable</code> · <code>Lista para microservicios</code> · <code>Secretos y PII</code> · <code>Network isolation</code>
+</p>
+
+<p align="center">
+  <a href="#arranque-rápido">Arranque rápido</a> ·
+  <a href="#arquitectura">Arquitectura</a> ·
+  <a href="#nueve-decisiones-enterprise">Nueve decisiones</a> ·
+  <a href="#flujo-de-una-migración">Flujo del agente</a> ·
+  <a href="https://claude.ai/artifact/ConqAhdJcUNAKpSwLVnqhQ">Versión interactiva ↗</a>
 </p>
 
 ---
 
+## Arranque rápido
+
+### Requisitos
+
+- Python 3.11+ y [`uv`](https://docs.astral.sh/uv/)
+- Docker corriendo (es el sandbox local donde se ejecuta el código de los agentes)
+- `pnpm` 10 (opcional, para usar los scripts del monorepo)
+- Una API key de [OpenRouter](https://openrouter.ai/)
+
+### 1. Configura las variables de entorno
+
+```bash
+cp apps/backend/.env.example apps/backend/.env
+```
+
+| Variable | Requerida | Para qué sirve |
+|---|:---:|---|
+| `FRONTIER_PLATFORM_API_KEY` | ✅ | Bearer que exigen todas las rutas de `/migrations` y `/agent`. Usa cualquier valor largo y aleatorio. |
+| `FRONTIER_SECRETS_MASTER_KEY` | ✅ | Llave Fernet del vault. Genérala con el comando de abajo. |
+| `OPENROUTER_API_KEY` | ✅ | Modelos de los agentes y modelo de decisión de guardrails. |
+| `FRONTIER_SANDBOX_PROVIDER` | ✅ | `docker` en local; `vercel` en la nube (valor por defecto si no se define). |
+| `VERCEL_TOKEN` · `VERCEL_TEAM_ID` · `VERCEL_PROJECT_ID` | solo con `vercel` | Credenciales de Vercel Sandbox. |
+| `LANGSMITH_API_KEY` · `LANGSMITH_PROJECT` | opcional | Trazas de cada run. Sin cuenta, pon `LANGSMITH_TRACING=false`. |
+
+```bash
+# Genera FRONTIER_SECRETS_MASTER_KEY
+cd apps/backend && uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Los modelos por rol, timeouts, límites de concurrencia y umbrales de guardrails son opcionales y están documentados en [`apps/backend/.env.example`](apps/backend/.env.example).
+
+### 2. Levanta el backend
+
+```bash
+pnpm --filter @frontier/backend dev
+# sin pnpm: cd apps/backend && uv run uvicorn frontier.app:app --app-dir src --reload --port 8000 --env-file .env
+```
+
+Con `FRONTIER_SANDBOX_PROVIDER=vercel` también puedes usar `docker compose up --build`. La imagen del backend no incluye el CLI de Docker, así que el sandbox `docker` solo funciona corriendo el backend directo en tu máquina.
+
+### 3. Lanza una migración
+
+```bash
+curl http://localhost:8000/health
+
+curl -X POST http://localhost:8000/migrations \
+  -H "Authorization: Bearer $FRONTIER_PLATFORM_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "base_url": "https://legacy.example.com",
+    "service_key": "<llave-del-servicio>",
+    "team_token": "<token-del-equipo>",
+    "context": "API de pedidos, 2014"
+  }'
+# → 202 {"job_id": "...", "status": "queued", "status_url": "/migrations/..."}
+
+curl http://localhost:8000/migrations/<job_id> -H "Authorization: Bearer $FRONTIER_PLATFORM_API_KEY"
+```
+
+Los artefactos de cada job (reportes, suite de caracterización y servicio de reemplazo) quedan en `apps/backend/data/artifacts/{job_id}`.
+
+---
+
+## Arquitectura
+
 > **El foco no fue solo crear el agente, sino una arquitectura _enterprise grade_ para ejecutarlo en la nube: segura, con guardrails, con límites claros y lista para escalar.**
 
-📐 **Arquitectura interactiva** (mapa del sistema, flujo del agente, matriz de herramientas y decisiones): <https://claude.ai/artifact/ConqAhdJcUNAKpSwLVnqhQ>
+<p align="center">
+  <img src="assets/architecture.png" alt="Mapa del sistema: api_backend, migrations_service, guardrails, vault y jobs a la izquierda; orquestador y subagentes al centro; llm_gateway, prompt_service, tool_service, session_service, codesandbox_gateway y mcp_gateway a la derecha; OpenRouter, legacy API, Vercel Sandbox y GitHub/Render como externos" width="100%">
+</p>
 
-## El reto
+<p align="center">
+  <sub>Trece módulos activos en un solo despliegue. Las flechas van de quien llama a quien responde. Solo las herramientas del host, el sandbox y <code>mcp_gateway</code> salen hacia afuera.<br>
+  <a href="https://claude.ai/artifact/ConqAhdJcUNAKpSwLVnqhQ">Ver la versión animada, que recorre una migración de punta a punta ↗</a></sub>
+</p>
 
-Heredamos un servicio con 10 años en producción. No hay código fuente ni documentación, y las dos personas que lo escribieron ya no están. Sabemos que recibe mensajes y responde, y que si lo apagamos la empresa se cae.
+## Nueve decisiones enterprise
 
-**Hay que entenderlo por completo y construir un reemplazo que se comporte exactamente igual, incluidos sus errores.**
+Un agente que funciona en una laptop no basta para una empresa. Este recibe credenciales de producción, ejecuta código que él mismo escribe y llama a sistemas críticos. Estas son las nueve decisiones que hacen que la plataforma que lo rodea esté a la altura.
 
-## La solución
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <sub><b>01 · ARQUITECTURA</b></sub>
+      <h3>Monolito modular hoy, microservicios mañana</h3>
+      Por el tiempo de la hackathon corre en un solo proceso, pero cada módulo ya tiene su contrato y su cliente. Pasarlo a microservicio es cambiar solo el cliente.
+      <br><br><code>monolito modular → microservicios</code>
+    </td>
+    <td width="33%" valign="top">
+      <sub><b>02 · LLM GATEWAY</b></sub>
+      <h3>Un único punto de consumo de LLMs</h3>
+      Todos los modelos pasan por <code>llm_gateway</code>. Eso permite usar proxies internos y LLMs que no salen a internet, todo dentro de una VPC privada.
+      <br><br><code>proxy interno · sin salida a internet · VPC privada</code>
+    </td>
+    <td width="33%" valign="top">
+      <sub><b>03 · VAULT</b></sub>
+      <h3>Secretos aislados en un vault</h3>
+      Las credenciales se cifran al entrar. El resto del sistema solo ve handles opacos y toda salida se redacta.
+      <br><br><code>service_key → sec_7c1e… → [REDACTED]</code>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <sub><b>04 · TOKENS</b></sub>
+      <h3>Los subagentes nunca ven el token</h3>
+      Para probar el API heredado, <code>tool_service</code> resuelve el secreto en el host y lo inyecta en la llamada. El agente solo recibe la respuesta.
+      <br><br><code>subagente → + token → legacy API</code>
+    </td>
+    <td valign="top">
+      <sub><b>05 · GUARDRAILS</b></sub>
+      <h3>Una capa de seguridad antes de gastar</h3>
+      Cada solicitud se filtra antes de tocar almacenamiento o sandbox. La capa es compatible con los nuevos modelos de decisión de AWS o con Amazon Bedrock Guardrails.
+      <br><br><code>Jev 1.13 hoy · modelos de decisión AWS · Bedrock Guardrails</code>
+    </td>
+    <td valign="top">
+      <sub><b>06 · JOBS ASYNC</b></sub>
+      <h3>Jobs asíncronos con polling</h3>
+      La API responde <code>202</code> con un <code>job_id</code> y la migración corre en segundo plano. Así escala a muchas migraciones de cajas negras en paralelo.
+      <br><br><code>POST → 202 job_id → GET polling</code>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <sub><b>07 · CODE SANDBOX</b></sub>
+      <h3>El código nunca corre en el servidor</h3>
+      Todo lo que escriben los agentes se ejecuta en un sandbox aislado por job. El gateway es compatible con Langfuse Sandbox o con las microVMs de agentes de AWS.
+      <br><br><code>Vercel Sandbox · Docker hoy · AWS AgentCore microVM</code>
+    </td>
+    <td valign="top">
+      <sub><b>08 · MCP GATEWAY</b></sub>
+      <h3>Credenciales externas en un solo lugar</h3>
+      <code>mcp_gateway</code> centraliza las credenciales de plataformas externas y permite crear adaptadores propios con filtros de seguridad corporativos.
+      <br><br><code>adaptadores propios · OAuth · SSO</code>
+    </td>
+    <td valign="top">
+      <sub><b>09 · TOOL SERVICE</b></sub>
+      <h3>Una sola puerta a los sistemas internos</h3>
+      <code>tool_service</code> es el único punto de entrada a las herramientas que tocan sistemas internos: usa los routers internos de la VPC y se conecta con otros subsistemas de la corporación.
+      <br><br><code>routers de la VPC · subsistemas corporativos</code>
+    </td>
+  </tr>
+</table>
 
-Una plataforma de migración que recibe la URL de un API heredado y la entrega a un agente líder con cuatro subagentes especializados. Entre todos documentan el API, catalogan cada comportamiento (errores incluidos), lo convierten en una suite de caracterización y construyen un reemplazo en FastAPI que la pasa igual que el original. **El veredicto solo se acepta con evidencia.**
-
-Un agente que funciona en una laptop no basta para una empresa. Este agente recibe credenciales de producción, ejecuta código que él mismo escribe y llama a sistemas críticos. Por eso la plataforma que lo rodea importa tanto como el agente.
-
-## Principios de arquitectura
+## Garantías en tiempo de ejecución
 
 | Principio | Cómo se cumple |
 |---|---|
@@ -52,41 +195,6 @@ El diseño objetivo es de microservicios. Para la hackathon todo corre en un sol
 - `container.py` es el único lugar que instancia servicios y los conecta.
 - Pasar un módulo a servicio independiente solo exige cambiar su cliente por uno HTTP o de cola. Los consumidores no cambian.
 
-```mermaid
-flowchart LR
-    subgraph MONO["Monolito modular · un despliegue"]
-        direction LR
-        subgraph IN["Entrada y control"]
-            API[api_backend] --> MIG[migrations_service]
-            MIG --> GRD[guardrails_service]
-            MIG --> VLT[secrets_service · vault]
-            MIG --> JOB[jobs_service]
-        end
-        subgraph AG["Agentes"]
-            ORC[orchestrator_service · líder] <--> SUB[sub_agents_service]
-        end
-        subgraph PLAT["Plataforma"]
-            LLM[llm_gateway]
-            PRM[prompt_service]
-            TLS[tool_service]
-            SES[session_service]
-            SBX[codesandbox_gateway]
-            MCP[mcp_gateway]
-        end
-        MIG --> ORC
-        ORC --> PLAT
-        SUB --> PLAT
-    end
-    LLM --> OR[(OpenRouter)]
-    GRD --> OR
-    SBX --> VS[(Vercel Sandbox / Docker)]
-    TLS --> LEG[(Legacy API)]
-    VS --> LEG
-    MCP --> GH[(GitHub · Render)]
-```
-
-### Módulos por capa
-
 | Capa | Módulo | Responsabilidad |
 |---|---|---|
 | Entrada y control | `api_backend` | Punto único de entrada con API key de plataforma (Bearer). `POST /migrations` responde `202` con un `job_id`; la migración sigue en segundo plano. |
@@ -105,7 +213,11 @@ flowchart LR
 
 ## Flujo de una migración
 
-El líder no avanza de fase hasta que el gate pasa. Si falla, vuelve a delegar con los motivos exactos, hasta tres intentos por fase.
+El líder planifica con `write_todos`, delega cada fase con `task` a un subagente y no avanza hasta que el gate pasa. Si falla, vuelve a delegar con los motivos exactos, hasta tres intentos por fase.
+
+<p align="center">
+  <img src="assets/agent-flow.png" alt="Flujo por fases: arranque, análisis de API, comportamiento, caracterización, implementación, despliegue y veredicto, con carriles para orquestador, subagentes, workspace y externos" width="100%">
+</p>
 
 | # | Fase | Quién | Gate |
 |---|---|---|---|
@@ -115,6 +227,12 @@ El líder no avanza de fase hasta que el gate pasa. Si falla, vuelve a delegar c
 | 4 | Reemplazo | `coder` (modo 2) | Suite en verde contra legacy **y** candidato, sin asserts debilitados ni tests saltados. |
 | 5 | Despliegue *(en construcción)* | `deployer` | Repositorio, commit y URL del servicio respondiendo. |
 | 6 | Veredicto | líder | `MigrationVerdict` validado contra la evidencia; el workspace se exporta a `data/artifacts/{job_id}`. |
+
+## El reto
+
+Heredamos un servicio con 10 años en producción. No hay código fuente ni documentación, y las dos personas que lo escribieron ya no están. Sabemos que recibe mensajes y responde, y que si lo apagamos la empresa se cae.
+
+**Hay que entenderlo por completo y construir un reemplazo que se comporte exactamente igual, incluidos sus errores.** Entre el líder y sus cuatro subagentes documentan el API, catalogan cada comportamiento, lo convierten en una suite de caracterización y construyen un reemplazo en FastAPI que la pasa igual que el original. El veredicto solo se acepta con evidencia.
 
 ## Stack
 
@@ -128,18 +246,6 @@ El líder no avanza de fase hasta que el gate pasa. Si falla, vuelve a delegar c
 | Observabilidad | structlog · LangSmith |
 | Monorepo | pnpm · Turborepo · uv |
 
-## Correr en local
-
-```bash
-cp apps/backend/.env.example apps/backend/.env
-# Completa FRONTIER_PLATFORM_API_KEY, FRONTIER_SECRETS_MASTER_KEY y OPENROUTER_API_KEY.
-# FRONTIER_SANDBOX_PROVIDER=docker usa Docker local; vercel requiere VERCEL_TOKEN, VERCEL_TEAM_ID y VERCEL_PROJECT_ID.
-
-docker compose up --build      # o: pnpm --filter @frontier/backend dev
-```
-
-La API queda en `http://localhost:8000`. Todas las variables están documentadas en [`apps/backend/.env.example`](apps/backend/.env.example).
-
 ## Estado
 
 - [x] Arquitectura enterprise: guardrails, vault, jobs, límites, sandbox por job
@@ -152,5 +258,9 @@ La API queda en `http://localhost:8000`. Todas las variables están documentadas
 ---
 
 <p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="assets/frontier-logo-light.svg">
+    <img src="assets/frontier-logo.svg" alt="Frontier by Lab10" width="140">
+  </picture><br>
   <sub>Construido para <a href="https://frontier.lab10.ai/">Frontier</a> by <a href="https://lab10.ai">Lab10</a> · Bogotá 26</sub>
 </p>

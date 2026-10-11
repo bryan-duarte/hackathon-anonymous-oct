@@ -30,7 +30,7 @@ from frontier.modules.memory import MemoryService
 from frontier.modules.migrations import MigrationsService
 from frontier.modules.orchestrator import OrchestratorService
 from frontier.modules.prompts import PromptsService
-from frontier.modules.sandbox import SandboxService
+from frontier.modules.sandbox import DockerDriver, SandboxDriver, SandboxService, VercelDriver
 from frontier.modules.secrets import SecretsRepository, SecretsService
 from frontier.modules.sessions import SessionsService
 from frontier.modules.subagents import SubagentsService
@@ -91,13 +91,9 @@ async def build_clients(
     prompts = PromptsClient(PromptsService())
     sandbox = SandboxClient(
         SandboxService(
-            token=settings.vercel_token,
-            team_id=settings.vercel_team_id,
-            project_id=settings.vercel_project_id,
-            runtime=settings.sandbox_runtime,
+            driver=_sandbox_driver(settings),
             timeout_s=settings.sandbox_timeout_s,
             job_timeout_s=settings.migration_sandbox_timeout_s,
-            command_timeout_s=settings.sandbox_command_timeout_s,
             secrets=secrets,
         )
     )
@@ -157,3 +153,18 @@ def _models_by_role(settings: Settings) -> dict[AgentRole, str]:
         AgentRole.SCIENTIST: settings.scientist_model or settings.llm_model,
         AgentRole.CODER: settings.coder_model or settings.llm_model,
     }
+
+
+def _sandbox_driver(settings: Settings) -> SandboxDriver:
+    if settings.sandbox_provider == "docker":
+        return DockerDriver(
+            image=settings.sandbox_docker_image,
+            command_timeout_s=settings.sandbox_command_timeout_s,
+        )
+    return VercelDriver(
+        token=settings.vercel_token,
+        team_id=settings.vercel_team_id,
+        project_id=settings.vercel_project_id,
+        runtime=settings.sandbox_runtime,
+        command_timeout_s=settings.sandbox_command_timeout_s,
+    )

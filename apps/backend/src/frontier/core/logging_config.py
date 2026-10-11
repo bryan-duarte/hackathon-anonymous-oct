@@ -29,7 +29,7 @@ def configure_logging(log_format: LogFormat) -> None:
             foreign_pre_chain=SHARED_PROCESSORS,
             processors=[
                 structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-                _renderer_for(log_format),
+                *_renderers_for(log_format),
             ],
         )
     )
@@ -44,10 +44,10 @@ def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     return structlog.stdlib.get_logger(name)
 
 
-def _renderer_for(log_format: LogFormat) -> structlog.typing.Processor:
+def _renderers_for(log_format: LogFormat) -> list[structlog.typing.Processor]:
     if log_format == "json":
-        return structlog.processors.JSONRenderer()
-    return structlog.dev.ConsoleRenderer()
+        return [structlog.processors.format_exc_info, structlog.processors.JSONRenderer()]
+    return [structlog.dev.ConsoleRenderer()]
 
 
 def _route_uvicorn_through_root() -> None:
